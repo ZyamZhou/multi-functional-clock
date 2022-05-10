@@ -14,3 +14,12 @@
 ## function display
 <img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures.jpg" width="100%">
 <img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures2%20.jpg" width="100%">
+
+## user guide
+For those who want to use the code. Note that:
+1)Directory proteusFiles contain the proteus simulation files.
+2)Codes used for simulation are in the directory of the same name.
+3)Codes implemented on the real PCB are in the directory named ultimateVersion.
+
+## contact me
+zimengzhou2@gmail.com
