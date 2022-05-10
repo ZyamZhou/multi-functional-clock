@@ -10,3 +10,7 @@
 <center class="half">
 <img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/PCB1.png" width="50%"><img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/PCB2.png" width="50%">
 </center>
+
+## function display
+<img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures.jpg" width="100%">
+<img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures2.jpg" width="100%">
