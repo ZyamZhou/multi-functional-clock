@@ -13,4 +13,4 @@
 
 ## function display
 <img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures.jpg" width="100%">
-<img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures2.jpg" width="100%">
+<img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures2%20.jpg" width="100%">
