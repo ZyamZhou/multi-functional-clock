@@ -1,0 +1,338 @@
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE PRESSKEY
+OBJECT MODULE PLACED IN pressKey.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE pressKey.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          #include <DS1302.h>
+   4          #include <LCD.h>
+   5          #define uint unsigned int
+   6          #define uchar unsigned char 
+   7          
+   8          sbit K1=P3^0;                //选择要改变的时间参数
+   9          sbit K2=P3^1;                //设置时间的数据 加按键
+  10          sbit K5=P1^6;                    //减按键
+  11          sbit SET_AM_PM=P1^7;
+  12          sbit beep=P1^5;
+  13          
+  14          uchar idata SetAlarm;               //用于设置闹钟
+  15          uchar idata SetState;               //用于选择要调整的数据 秒分时日月周年
+  16          uchar idata SetPlace;               //用于选择要调整的数据
+  17          uchar idata alarm[3];               //用于装闹钟数据
+  18          uchar idata alarm_AM_PM;
+  19          
+  20          uchar BCDToDex(uchar num){
+  21   1              return (num/16)*10+(num%16);    
+  22   1      }
+  23          
+  24          uchar DexToBCD(uchar num){
+  25   1              return (num/10)*16+(num%10);
+  26   1      }
+  27          /******************************************************************************
+  28          函数名：Int0Configuration()
+  29          函数功能：配置外部中断0
+  30          输入： 无
+  31          输出：无
+  32          *******************************************************************************/
+  33          void IntConfiguration(){
+  34   1              //设置INT0
+  35   1              IT0=1;                          //使能INT0为下降沿中断
+  36   1              IT1=1;              //使能INT1为下降沿中断
+  37   1              EX0=1;              //外部中断0允许位
+  38   1              EX1=1;              //外部中断1允许位，允许外部中断。
+  39   1              EA=1;               //中断允许 （打开总中断）
+  40   1      
+  41   1      }
+  42          
+  43          /******************************************************************************
+  44          函数名：Delay10ms
+  45          函数功能：延时10ms
+  46          输入： 无
+  47          输出：无
+  48          *******************************************************************************/
+  49          void Delay10ms(){                                   //误差0us
+  50   1              uchar a,b,c;
+  51   1              for(c=1;c>0;c--)
+  52   1                      for(b=38;b>0;b--)
+  53   1                              for(a=130;a>0;a--);}
+  54          
+  55          /******************************************************************************
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 2   
+
+  56          函数名：scanButton()
+  57          函数功能：键盘扫描函数
+  58          输入： 
+  59          输出：
+  60          *******************************************************************************/
+  61          void scanButton(){
+  62   1              uchar i=0;
+  63   1                      if(K1==0){                      //检测按键K1是否按下
+  64   2                              Delay10ms();                    //消除抖动
+  65   2                              if(K1==0){
+  66   3                                      SetPlace++;
+  67   3                                      if(SetPlace>=7)
+  68   3                                      SetPlace=0;
+  69   3                              }
+  70   2                              while((i<50)&&(K1==0)){       //检测按键是否松开
+  71   3                                      Delay10ms();
+  72   3                                      i++;
+  73   3                              }
+  74   2                              i=0;
+  75   2                      }
+  76   1                      /*加功能*/
+  77   1                      if(K2==0){                       //检测按键K2是否按下
+  78   2                              Delay10ms();                  //消除抖动
+  79   2                              if(K2==0){
+  80   3                                      TIME[SetPlace]++;
+  81   3                                      switch(SetPlace){
+  82   4                                              case 0: DisplayNumber(1,2,6*8,TIME[0]/16);
+  83   4                                                              DisplayNumber(1,2,7*8,TIME[0]%16);
+  84   4                                                              break;
+  85   4                                              case 1: DisplayNumber(1,2,3*8,TIME[1]/16);
+  86   4                                                              DisplayNumber(1,2,4*8,TIME[1]%16);
+  87   4                                                              break;
+  88   4                                              case 2: DisplayNumber(1,2,0*8,TIME[2]/16);
+  89   4                                                              DisplayNumber(1,2,1*8,TIME[2]%16);
+  90   4                                                              break;
+  91   4                                              case 3: DisplayNumber(2,0,1*16,TIME[3]/16);
+  92   4                                                              DisplayNumber(2,0,1*8+1*16,TIME[3]%16);
+  93   4                                                              break;
+  94   4                                              case 4: DisplayNumber(1,0,4*8+1*16,TIME[4]/16);
+  95   4                                                              DisplayNumber(1,0,5*8+1*16,TIME[4]%16);
+  96   4                                                              break;
+  97   4                                              case 5: break;          //星期的显示暂时不写，到时候来改
+  98   4                                                              DisplayWord1(2,2,2*8+2*16,TIME[5]+7);
+  99   4                                              case 6: DisplayNumber(1,0,2*8,TIME[6]/16);
+ 100   4                                                              DisplayNumber(1,0,3*8,TIME[6]%16);
+ 101   4                                                              break;
+ 102   4                                      }
+ 103   3                                      if((TIME[SetPlace]&0x0f)>9){                       //保证BCD码
+ 104   4                                              TIME[SetPlace]=TIME[SetPlace]+6;
+ 105   4                                      }
+ 106   3                                      if((TIME[SetPlace]>=0x60)&&(SetPlace<2)){          //分秒只能到59
+ 107   4                                              TIME[SetPlace]=0;
+ 108   4                                      }
+ 109   3                                      if((TIME[SetPlace]>=0x24)&&(SetPlace==2)){         //小时只能到23
+ 110   4                                              TIME[SetPlace]=0;
+ 111   4                                      }
+ 112   3                                      if((TIME[SetPlace]>=0x32)&&(SetPlace==3)){         //日只能到31
+ 113   4                                              TIME[SetPlace]=0;
+ 114   4                                      }
+ 115   3                                      if((TIME[SetPlace]>=0x13)&&(SetPlace==4)){         //月只能到12
+ 116   4                                              TIME[SetPlace]=0;
+ 117   4                                      }
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 3   
+
+ 118   3                                      if((TIME[SetPlace]>=0x7)&&(SetPlace==5)){          //周只能到7
+ 119   4                                              TIME[SetPlace]=1;
+ 120   4                                      }
+ 121   3                                      while((i<50)&&(K2==0)){                             //检测按键是否松开
+ 122   4                                              Delay10ms();
+ 123   4                                              i++;}
+ 124   3                                      i=0;}
+ 125   2                      }
+ 126   1      /*减功能*/
+ 127   1                      if(K5==0){                       //检测按键K2是否按下
+ 128   2                              Delay10ms();                              //消除抖动
+ 129   2                              if(K5==0){
+ 130   3                                      TIME[SetPlace]=BCDToDex(TIME[SetPlace]);         //转换成十进制
+ 131   3                                      TIME[SetPlace]--;                                             //进行减法操作
+ 132   3                                      TIME[SetPlace]=DexToBCD(TIME[SetPlace]);     //再转换成BCD码
+ 133   3                                      switch(SetPlace){
+ 134   4                                              case 0: DisplayNumber(1,2,6*8,TIME[0]/16);
+ 135   4                                                              DisplayNumber(1,2,7*8,TIME[0]%16);
+ 136   4                                                              break;
+ 137   4                                              case 1: DisplayNumber(1,2,3*8,TIME[1]/16);
+ 138   4                                                              DisplayNumber(1,2,4*8,TIME[1]%16);
+ 139   4                                                              break;
+ 140   4                                              case 2: DisplayNumber(1,2,0*8,TIME[2]/16);
+ 141   4                                                              DisplayNumber(1,2,1*8,TIME[2]%16);
+ 142   4                                                              break;
+ 143   4                                              case 3: DisplayNumber(2,0,1*16,TIME[3]/16);
+ 144   4                                                              DisplayNumber(2,0,1*8+1*16,TIME[3]%16);
+ 145   4                                                              break;
+ 146   4                                              case 4: DisplayNumber(1,0,4*8+1*16,TIME[4]/16);
+ 147   4                                                              DisplayNumber(1,0,5*8+1*16,TIME[4]%16);
+ 148   4                                                              break;
+ 149   4                                              case 5: break;          //星期的显示暂时不写，到时候来改
+ 150   4                                                              DisplayWord1(2,2,2*8+2*16,TIME[5]+7);
+ 151   4                                              case 6: DisplayNumber(1,0,2*8,TIME[6]/16);
+ 152   4                                                              DisplayNumber(1,0,3*8,TIME[6]%16);
+ 153   4                                                              break;
+ 154   4                                      }
+ 155   3                                      if(SetPlace==3){
+ 156   4                                              if(TIME[5]==1) TIME[5]=7;
+ 157   4                                              else TIME[5]--;
+ 158   4                                      }
+ 159   3                                      if((TIME[SetPlace]==0)&&(SetPlace<2)){        //分秒只能到59
+ 160   4                                              TIME[SetPlace]=0x60;
+ 161   4                                      }
+ 162   3                                      if((TIME[SetPlace]==0)&&(SetPlace==2)){       //小时只能到12
+ 163   4                                              TIME[SetPlace]=0x12;
+ 164   4                                      }
+ 165   3                                      if((TIME[SetPlace]==0)&&(SetPlace==3)){       //日只能到31
+ 166   4                                              TIME[SetPlace]=0x31;
+ 167   4                                      }
+ 168   3                                      if((TIME[SetPlace]==0)&&(SetPlace==4)){       //月只能到12
+ 169   4                                              TIME[SetPlace]=0x12;
+ 170   4                                      }
+ 171   3                                      if((TIME[SetPlace]==0)&&(SetPlace==5)){          //周只能到7
+ 172   4                                              TIME[SetPlace]=0x07;
+ 173   4                                      }
+ 174   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 175   4                                              Delay10ms();
+ 176   4                                              i++;}
+ 177   3                                      i=0;}
+ 178   2                      }
+ 179   1              
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 4   
+
+ 180   1                      /*设置AM_PM功能*/               
+ 181   1                      if(SET_AM_PM==0){                       //检测按键K2是否按下
+ 182   2                              Delay10ms();                        //消除抖动
+ 183   2                              if(SET_AM_PM==0){
+ 184   3                                      if(AM_PM==1)AM_PM=0;
+ 185   3                                      else AM_PM=1;
+ 186   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 187   4                                              Delay10ms();
+ 188   4                                              i++;
+ 189   4                                      }
+ 190   3                                      i=0;
+ 191   3                              }
+ 192   2                              if(AM_PM==0){
+ 193   3                                      DisplayNumber(2,2,0*8,11);
+ 194   3                              }
+ 195   2                              else{
+ 196   3                                      DisplayNumber(2,2,0*8,12);
+ 197   3                              }
+ 198   2                      }       
+ 199   1      
+ 200   1      }
+ 201          
+ 202          
+ 203          /******************************************************************************
+ 204          函数名：scanButton_alarm()
+ 205          函数功能：用于闹钟设置的键盘扫描函数
+ 206          输入： 
+ 207          输出：
+ 208          *******************************************************************************/
+ 209          void scanButton_alarm(){
+ 210   1              uchar i=0;
+ 211   1                      if(K1==0){                      //检测按键K1是否按下
+ 212   2                              Delay10ms();                    //消除抖动
+ 213   2                              if(K1==0){
+ 214   3                                      SetPlace++;
+ 215   3                                      if(SetPlace>=3)
+ 216   3                                      SetPlace=0;
+ 217   3                              }
+ 218   2                              while((i<50)&&(K1==0)){       //检测按键是否松开
+ 219   3                                      Delay10ms();
+ 220   3                                      i++;
+ 221   3                              }
+ 222   2                              i=0;
+ 223   2                      }
+ 224   1                      /*加功能*/
+ 225   1                      if(K2==0){                       //检测按键K2是否按下
+ 226   2                              Delay10ms();                  //消除抖动
+ 227   2                              if(K2==0){
+ 228   3                                      alarm[SetPlace]++;
+ 229   3                                      switch(SetPlace){
+ 230   4                                              case 0: DisplayNumber(1,2,6*8,alarm[0]/16);
+ 231   4                                                              DisplayNumber(1,2,7*8,alarm[0]%16);
+ 232   4                                                              break;
+ 233   4                                              case 1: DisplayNumber(1,2,3*8,alarm[1]/16);
+ 234   4                                                              DisplayNumber(1,2,4*8,alarm[1]%16);
+ 235   4                                                              break;
+ 236   4                                              case 2: DisplayNumber(1,2,0*8,alarm[2]/16);
+ 237   4                                                              DisplayNumber(1,2,1*8,alarm[2]%16);
+ 238   4                                                              break;
+ 239   4                                      }
+ 240   3                                      if((alarm[SetPlace]&0x0f)>9){                       //保证BCD码
+ 241   4                                              alarm[SetPlace]=alarm[SetPlace]+6;
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 5   
+
+ 242   4                                      }
+ 243   3                                      if((alarm[SetPlace]>=0x60)&&(SetPlace<2)){          //分秒只能到59
+ 244   4                                              alarm[SetPlace]=0;
+ 245   4                                      }
+ 246   3                                      if((alarm[SetPlace]>=0x24)&&(SetPlace==2)){         //小时只能到23
+ 247   4                                              alarm[SetPlace]=0;
+ 248   4                                      }
+ 249   3                                      while((i<50)&&(K2==0)){                             //检测按键是否松开
+ 250   4                                              Delay10ms();
+ 251   4                                              i++;}
+ 252   3                                      i=0;}
+ 253   2                      }
+ 254   1                                      /*减功能*/
+ 255   1                      if(K5==0){                       //检测按键K2是否按下
+ 256   2                              Delay10ms();                  //消除抖动
+ 257   2                              if(K5==0){            
+ 258   3                                      alarm[SetPlace]=BCDToDex(alarm[SetPlace]);         //转换成十进制
+ 259   3                                      alarm[SetPlace]--;                                            //进行减法操作
+ 260   3                                      alarm[SetPlace]=DexToBCD(alarm[SetPlace]);     //再转换成BCD码
+ 261   3                                      switch(SetPlace){
+ 262   4                                              case 0: DisplayNumber(1,2,6*8,alarm[0]/16);
+ 263   4                                                              DisplayNumber(1,2,7*8,alarm[0]%16);
+ 264   4                                                              break;
+ 265   4                                              case 1: DisplayNumber(1,2,3*8,alarm[1]/16);
+ 266   4                                                              DisplayNumber(1,2,4*8,alarm[1]%16);
+ 267   4                                                              break;
+ 268   4                                              case 2: DisplayNumber(1,2,0*8,alarm[2]/16);
+ 269   4                                                              DisplayNumber(1,2,1*8,alarm[2]%16);
+ 270   4                                                              break;
+ 271   4                                      }
+ 272   3                                      if((alarm[SetPlace]==0)&&(SetPlace<2)){          //分秒只能到59
+ 273   4                                              alarm[SetPlace]=0x60;
+ 274   4                                      }
+ 275   3                                      if((alarm[SetPlace]==0)&&(SetPlace==2)){         //小时只能到23
+ 276   4                                              alarm[SetPlace]=0x12;
+ 277   4                                      }
+ 278   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 279   4                                              Delay10ms();
+ 280   4                                              i++;}
+ 281   3                                      i=0;}
+ 282   2                      }
+ 283   1              
+ 284   1                      /*设置AM_PM功能*/               
+ 285   1                      if(SET_AM_PM==0){                       //检测按键K2是否按下
+ 286   2                              alarm_AM_PM=AM_PM;
+ 287   2                              Delay10ms();                        //消除抖动
+ 288   2                              if(SET_AM_PM==0){
+ 289   3                                      if(alarm_AM_PM==1)alarm_AM_PM=0;
+ 290   3                                      else alarm_AM_PM=1;
+ 291   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 292   4                                              Delay10ms();
+ 293   4                                              i++;
+ 294   4                                      }
+ 295   3                                      i=0;
+ 296   3                              }
+ 297   2                              if(alarm_AM_PM==0){
+ 298   3                                      DisplayNumber(2,2,0*8,11);
+ 299   3                              }
+ 300   2                              else{
+ 301   3                                      DisplayNumber(2,2,0*8,12);
+ 302   3                              }
+ 303   2                      }       
+C51 COMPILER V9.00   PRESSKEY                                                              07/10/2021 15:25:30 PAGE 6   
+
+ 304   1      
+ 305   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1424    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       2
+   IDATA SIZE       =      7    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,520 @@
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "intrins.h"
+   3          #include "string.h"
+   4          #include "DS1302.h"
+   5          #include "LCDNew.h"
+   6          #include "lunarCalendar.h"
+   7          #include "DHT11.h"
+   8          #include "map.h"
+   9          #include "pressKey.h"
+  10          #include "SelectAlarm.h"
+  11          #include "blueTeeth.h"
+  12          #include "cellPhone.h"
+  13          
+  14          #define uchar unsigned char 
+  15          #define uint unsigned int
+  16          
+  17          sbit K3=P3^2;                    //触发设置时间功能(定义在main函数里面)  SET功能
+  18          sbit K4=P3^3;            //触发设置闹钟   alarm功能
+  19          sbit LED1=P2^4;          //闹钟灯 高电平驱动
+  20          sbit MUSIC0=P1^0;            //闹钟音乐
+  21          sbit MUSIC1=P1^1;            //闹中音乐
+  22          sbit BEEP=P1^5;
+  23          sbit DOUT=P1^7;
+  24          
+  25          uchar flagA=0;
+  26          uchar flagLED=0;         //LED开启状态函数
+  27          uchar acc=0;             //记录LED闪烁次数
+  28          uchar flagAlarmTriggered=0;
+  29          uchar flagClear=0;
+  30          uchar UartDate=0;
+  31          uchar flagWeather=0;
+  32          
+  33          void DisplayTime();
+  34          void IntConfiguration();
+  35          void DisplayLunar();    
+  36          void LCDdisplaywhole();
+  37          void DisplayAlarmOn();
+  38          void AlarmOn();
+  39          void delay_ms(uint xms);
+  40          void AlarmMenu();
+  41          void AlarmTriggered();
+  42          void PostString(uchar *p);
+  43          void FireOn();
+  44          void Weather(uchar num);
+  45          /******************************main函数***********************************/
+  46          void main(){
+  47   1              FireOn();
+  48   1              Uart0_Init();
+  49   1              LCD12864_Init();
+  50   1              Ds1302Init();
+  51   1              AM_PM=(bit)(TIME[2]&0x20>>5);
+  52   1              DHT11_Init();                             //越过DHT11 1s不稳定期
+  53   1              IntConfiguration();                       //开中断
+  54   1              LED1=0;                                   //LED初始化
+  55   1              alarm_AM_PM=0;                            //闹钟AM/PM初始化
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 2   
+
+  56   1              BEEP=0;
+  57   1              while(1){
+  58   2                      FireOn();
+  59   2                      switch(flag11){
+  60   3                              case 6:         
+  61   3                                      if(SetAlarm==0){
+  62   4                                              flagA=1;                       //蓝牙alarm 键                                   
+  63   4                                      }
+  64   3                                      if(SetAlarm!=0){
+  65   4                                              flagSetATime=0;
+  66   4                                              flagSetAMusic=0;
+  67   4                                              flagCheckAlarm=0;
+  68   4                                              flagClear=1;                   
+  69   4                                      }
+  70   3                                      SetAlarm=~SetAlarm;
+  71   3                                      SetPlace=0;
+  72   3                                      break;
+  73   3                              case 4:                                               //蓝牙设置时间键
+  74   3                                      SetState=~SetState;
+  75   3                                      SetPlace=0;
+  76   3                                      Ds1302Init();
+  77   3                                      break;                          
+  78   3                      }
+  79   2                      flag11=0xff;                              //置空状态
+  80   2                      if(flagClear==1){
+  81   3                              LCD12864_WriteCmd(0x01);          //清除LCD12864的显示内容
+  82   3                              flagClear=0;                          
+  83   3                      }
+  84   2                      if(AlarmOnOff==1){                            //闹钟开启状态（确认无误）
+  85   3                              AlarmOn();                      
+  86   3                      }
+  87   2                      if(flagAlarmTriggered==1){                    //当闹钟被触发（确认无误）
+  88   3                              AlarmTriggered();
+  89   3                              flagAlarmTriggered=0;   
+  90   3                      }
+  91   2                      if((SetState==0) && (SetAlarm==0)){       //主界面状态(确认无误）
+  92   3                              LCDdisplaywhole();                //显示主界面
+  93   3                      }
+  94   2                      if(SetState!=0 && SetAlarm==0 ){          //进入时间设置状态
+  95   3                              scanButton();                     //按键设置时间
+  96   3                      }
+  97   2                      if(SetState==0 && SetAlarm!=0){       //进入闹钟菜单
+  98   3                              if(flagA==1){
+  99   4                                      LCD12864_WriteCmd(0x01);      //清除LCD12864的显示内容
+ 100   4                                      flagA=0;        
+ 101   4                              }
+ 102   3                              AlarmMenu();
+ 103   3                      }                               
+ 104   2              }
+ 105   1      }
+ 106          /********************************显示时刻的函数*********************************/
+ 107          void DisplayTime(){
+ 108   1                      /*显示时间*/
+ 109   1                      LCDSetPos(1,0);           //选位置
+ 110   1                      LCD12864_WriteData(StrNUMBER[hour/16]);
+ 111   1                      LCD12864_WriteData(StrNUMBER[hour%16]);
+ 112   1                      LCD12864_WriteData(':');
+ 113   1                      LCD12864_WriteData(StrNUMBER[minute/16]);
+ 114   1                      LCD12864_WriteData(StrNUMBER[minute%16]);
+ 115   1                      LCD12864_WriteData(':');
+ 116   1                      LCD12864_WriteData(StrNUMBER[second/16]);
+ 117   1                      LCD12864_WriteData(StrNUMBER[second%16]);
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 3   
+
+ 118   1                      /*显示AM PM*/
+ 119   1                      if(AM_PM==0){
+ 120   2                              LCD12864_WriteData('A');
+ 121   2                      }
+ 122   1                      else{
+ 123   2                              LCD12864_WriteData('P');
+ 124   2                      }
+ 125   1                      LCD12864_WriteData('M');        
+ 126   1      }
+ 127          /***********************************LCD总显示函数****************************************/
+ 128          void LCDdisplaywhole(){
+ 129   1              Ds1302ReadTime();
+ 130   1              convert(year,month,date);     //进行阴阳历转换
+ 131   1              DHT11();                        //读取温湿度
+ 132   1                      LCDSetPos(0,0);             //选位置
+ 133   1                      LCD12864_WriteData('2');
+ 134   1                      LCD12864_WriteData('0');
+ 135   1                      LCD12864_WriteData(StrNUMBER[year/16]);
+ 136   1                      LCD12864_WriteData(StrNUMBER[year%16]);
+ 137   1                      DisplayWord("年");                
+ 138   1                      /*显示月*/
+ 139   1                      LCD12864_WriteData(StrNUMBER[month/16]);
+ 140   1                      LCD12864_WriteData(StrNUMBER[month%16]);
+ 141   1                      DisplayWord("月");
+ 142   1                      /*显示日*/
+ 143   1                      LCD12864_WriteData(StrNUMBER[date/16]);
+ 144   1                      LCD12864_WriteData(StrNUMBER[date%16]);
+ 145   1                      DisplayWord("日");
+ 146   1                      //换行
+ 147   1                      LCDSetPos(1,0);           //选位置
+ 148   1                      DisplayTime();
+ 149   1                      DisplayWord("星");
+ 150   1                      DisplayWord("期");
+ 151   1                      DisplayWord(MAPNumber(day)); 
+ 152   1                      //换行
+ 153   1                      LCDSetPos(2,0);
+ 154   1                      //显示二十四节气
+ 155   1                      if((convertBCDtoHex(month)==(code3/2+1))&&(convertBCDtoHex(date)==SolarTerm[code3])){
+ 156   2                              DisplayWord(MAPSolar(code3));
+ 157   2                      }
+ 158   1                      else{
+ 159   2                              DisplayWord("    ");
+ 160   2                      }
+ 161   1                      DisplayLunar();
+ 162   1                      //显示温湿度
+ 163   1                      LCDSetPos(3,0);           //选位置
+ 164   1                      DisplayWord("温度");
+ 165   1                      LCD12864_WriteData(':');
+ 166   1                      LCD12864_WriteData(StrNUMBER[temprature/10]);
+ 167   1                      LCD12864_WriteData(StrNUMBER[temprature%10]);
+ 168   1                      LCD12864_WriteData(' ');
+ 169   1                      DisplayWord("湿度");
+ 170   1                      LCD12864_WriteData(':');
+ 171   1                      LCD12864_WriteData(StrNUMBER[hum/10]);
+ 172   1                      LCD12864_WriteData(StrNUMBER[hum%10]);  
+ 173   1      }
+ 174          
+ 175          /*********************************显示阴历日期函数***************************************/
+ 176          void DisplayLunar(){
+ 177   1                      lunar_date=lunar_date-1;        
+ 178   1                      //显示阴历日期
+ 179   1                      if(lunar_month==1){
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 4   
+
+ 180   2                              DisplayWord("正");
+ 181   2                      }
+ 182   1                      else if(lunar_month/10==0 && lunar_month%10!=0){
+ 183   2                              DisplayWord(MAPNumber(lunar_month/10));
+ 184   2                              DisplayWord(MAPNumber(lunar_month%10)); 
+ 185   2                      }
+ 186   1                      else if(lunar_month/10==1 && lunar_month%10==0){
+ 187   2                              DisplayWord("十");
+ 188   2                      }
+ 189   1                      else if(lunar_month%10==1 && lunar_month%10!=0){
+ 190   2                              DisplayWord(MAPNumber(lunar_month/10));
+ 191   2                              DisplayWord(MAPNumber(lunar_month%10));    
+ 192   2                      }
+ 193   1                      else{
+ 194   2                              DisplayWord("腊");
+ 195   2                      }
+ 196   1                      DisplayWord("月");
+ 197   1                                                           
+ 198   1                      if((lunar_date/10==0) || (lunar_date==10)){
+ 199   2                              DisplayWord("初");
+ 200   2                      }
+ 201   1                      else if(lunar_date/10==1){
+ 202   2                              DisplayWord("十");                    //十，初十是一种特殊情况
+ 203   2                      }
+ 204   1                      else if(lunar_date/10==2){
+ 205   2                              DisplayWord("廿");
+ 206   2                      }
+ 207   1                      else{
+ 208   2                              DisplayWord("三");      
+ 209   2                      }
+ 210   1                      if(lunar_date%10!=0){
+ 211   2                              DisplayWord(MAPNumber(lunar_date%10));
+ 212   2                      }
+ 213   1                      else{
+ 214   2                              DisplayWord("十");      
+ 215   2                      }       
+ 216   1      }
+ 217          
+ 218          /******************************************************************************
+ 219          函数名：DisplayAlarmOn()
+ 220          函数功能：当闹钟按键被按下时的显示函数
+ 221          输入： 无
+ 222          输出：无
+ 223          *******************************************************************************/
+ 224          void DisplayAlarmOn(){
+ 225   1              LCD12864_WriteCmd(0x01);    //清除LCD12864的显示内容
+ 226   1              LCDSetPos(0,1);
+ 227   1              DisplayWord("设置闹钟时间");
+ 228   1              /*显示时间*/
+ 229   1              LCDSetPos(1,2);           //选位置
+ 230   1              LCD12864_WriteData(StrNUMBER[alarm[2]/16]);
+ 231   1              LCD12864_WriteData(StrNUMBER[alarm[2]%16]);
+ 232   1              LCD12864_WriteData(':');
+ 233   1              LCD12864_WriteData(StrNUMBER[alarm[1]/16]);
+ 234   1              LCD12864_WriteData(StrNUMBER[alarm[1]%16]);
+ 235   1              LCD12864_WriteData(':');
+ 236   1              LCD12864_WriteData(StrNUMBER[alarm[0]/16]);
+ 237   1              LCD12864_WriteData(StrNUMBER[alarm[0]%16]);
+ 238   1              /*显示AM PM*/
+ 239   1              LCDSetPos(2,3);
+ 240   1              LCD12864_WriteData(' ');
+ 241   1              if(alarm_AM_PM==0){
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 5   
+
+ 242   2                      LCD12864_WriteData('A');
+ 243   2              }
+ 244   1              if(alarm_AM_PM==1){
+ 245   2                      LCD12864_WriteData('P');
+ 246   2              }
+ 247   1              LCD12864_WriteData('M');
+ 248   1                              
+ 249   1      }
+ 250          
+ 251          /******************************************************************************
+ 252          函数名：Int0Configuration()
+ 253          函数功能：配置外部中断0
+ 254          输入： 无
+ 255          输出：无
+ 256          *******************************************************************************/
+ 257          void IntConfiguration(){
+ 258   1              //设置INT0
+ 259   1              IT0=1;                          //使能INT0为下降沿中断
+ 260   1              IT1=1;              //使能INT1为下降沿中断
+ 261   1              EX0=1;              //外部中断0允许位
+ 262   1              EX1=1;              //外部中断1允许位，允许外部中断。
+ 263   1              EA=1;               //中断允许 （打开总中断）
+ 264   1      
+ 265   1      }
+ 266          /***************************外部中断0服务子程序******************************/
+ 267          void Int0() interrupt 0{
+ 268   1              Delay10ms();
+ 269   1              if(K3==0){
+ 270   2                      SetState=~SetState;
+ 271   2                      SetPlace=0;
+ 272   2                      Ds1302Init(); 
+ 273   2              }
+ 274   1      }
+ 275          
+ 276          /***************************外部中断1服务子程序******************************/
+ 277          void Int2() interrupt 2{
+ 278   1              Delay10ms();
+ 279   1              if(K4==0){
+ 280   2                      if(SetAlarm==0){
+ 281   3                              flagA=1;                       //每当闹钟设置按键被触发的时候设置一次初始化                                
+             -     
+ 282   3                      }
+ 283   2                      if(SetAlarm!=0){
+ 284   3                              flagSetATime=0;
+ 285   3                              flagSetAMusic=0;
+ 286   3                              flagCheckAlarm=0;
+ 287   3                              flagClear=1;                   //当从闹钟菜单界面重新返回主界面的时候用于清屏的变量
+ 288   3                      }
+ 289   2                      SetAlarm=~SetAlarm;
+ 290   2                      SetPlace=0;
+ 291   2              }
+ 292   1      }
+ 293          /*********************延时子程序*************************/
+ 294          void delay_ms(uint xms){
+ 295   1              uint i,j;
+ 296   1              for(i=xms;i>0;i--){
+ 297   2                      for(j=110;j>0;j--);
+ 298   2              }       
+ 299   1      }
+ 300          
+ 301          
+ 302          
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 6   
+
+ 303          /***********************************闹钟触发函数**************************************/
+ 304          
+ 305          void AlarmOn(){                                   //闹钟响起函数
+ 306   1              uchar i=0;
+ 307   1              if((second==alarm[0])&&(minute==alarm[1]) && (hour==alarm[2]) && (AM_PM==alarm_AM_PM)&&(SetAlarm==0)){
+ 308   2                      flagLED=1;
+ 309   2                      flagAlarmTriggered=1;
+ 310   2              }
+ 311   1      
+ 312   1      }
+ 313          
+ 314          
+ 315          
+ 316          /***************************************闹钟菜单************************************/
+ 317          void AlarmMenu(){
+ 318   1              if(flagSetATime==0 && flagSetAMusic==0 && flagCheckAlarm==0){
+ 319   2                      DisplayChoice();
+ 320   2                      BTChoice();
+ 321   2                      scanChoiceButton();
+ 322   2              }
+ 323   1              if(flagSetATime==1){     //进入设置闹钟时间界面
+ 324   2                      if(flagTIME==1){
+ 325   3                              DisplayAlarmOn();                    //显示设置闹钟时间界面
+ 326   3                      }
+ 327   2                      flagTIME=0;
+ 328   2                      scanButton_alarm();
+ 329   2                      //BtSetAlarm();
+ 330   2              }
+ 331   1              if(flagSetAMusic==1){   //进入设置闹钟音乐界面 
+ 332   2                      if(flagMUSIC==1){
+ 333   3                              DisplaySetMusic();
+ 334   3                      }
+ 335   2                      flagMUSIC=0;
+ 336   2                      scanButtonSetMusic();
+ 337   2                      BtSetAlarmMusic();                              
+ 338   2              }
+ 339   1              if(flagCheckAlarm==1){    //进入闹钟状态查看界面
+ 340   2                      if(flagState==1){
+ 341   3                              LCD12864_WriteCmd(0x01);      //就清一次屏
+ 342   3                              flagState=0;
+ 343   3                      } 
+ 344   2                      if(AlarmOnOff==0){                //当闹钟没有打开
+ 345   3                              LCDSetPos(0,1);
+ 346   3                              DisplayWord("闹钟未开启！");    
+ 347   3                      }
+ 348   2                      else{                            //当闹钟已经开启
+ 349   3                              LCDSetPos(0,2);
+ 350   3                              DisplayWord("闹钟时间");
+ 351   3                              /*显示时间*/
+ 352   3                              LCDSetPos(1,2);        
+ 353   3                              LCD12864_WriteData(StrNUMBER[alarm[2]/16]);
+ 354   3                              LCD12864_WriteData(StrNUMBER[alarm[2]%16]);
+ 355   3                              LCD12864_WriteData(':');
+ 356   3                              LCD12864_WriteData(StrNUMBER[alarm[1]/16]);
+ 357   3                              LCD12864_WriteData(StrNUMBER[alarm[1]%16]);
+ 358   3                              LCD12864_WriteData(':');
+ 359   3                              LCD12864_WriteData(StrNUMBER[alarm[0]/16]);
+ 360   3                              LCD12864_WriteData(StrNUMBER[alarm[0]%16]);
+ 361   3                              /*显示AM PM*/
+ 362   3                              LCDSetPos(2,3);
+ 363   3                              LCD12864_WriteData(' ');
+ 364   3                              if(alarm_AM_PM==0){
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 7   
+
+ 365   4                                      LCD12864_WriteData('A');
+ 366   4                              }
+ 367   3                              if(alarm_AM_PM==1){
+ 368   4                                      LCD12864_WriteData('P');
+ 369   4                              }
+ 370   3                              LCD12864_WriteData('M');        
+ 371   3                      }       
+ 372   2              }       
+ 373   1      }
+ 374          
+ 375          /*************************************闹钟响起时*****************************************/
+ 376          void AlarmTriggered(){
+ 377   1              LCD12864_WriteCmd(0x01);    //清除LCD12864的显示内容
+ 378   1              LCDSetPos(0,0);
+ 379   1              DisplayWord("别睡了起床啦！");
+ 380   1              switch(NumMusic){              //选择音乐
+ 381   2                      case 0:
+ 382   2                              MUSIC0=0;
+ 383   2                              break;
+ 384   2                      case 1:
+ 385   2                              MUSIC1=0;
+ 386   2                              break;  
+ 387   2              }
+ 388   1              if(flagLED==1){                             //闹钟响起30sLED闪烁30次
+ 389   2                      //扫描按键
+ 390   2                      acc=30;
+ 391   2                      while(acc){
+ 392   3                      LED1=1;
+ 393   3                      BEEP=1;
+ 394   3                      delay_ms(500);
+ 395   3                      LED1=0;
+ 396   3                      BEEP=0;
+ 397   3                      delay_ms(500);
+ 398   3                      acc--;                  
+ 399   3                      }
+ 400   2                      flagLED=0;
+ 401   2              }
+ 402   1              switch(NumMusic){
+ 403   2                      case 0:
+ 404   2                              MUSIC0=1;
+ 405   2                              break;
+ 406   2                      case 1:
+ 407   2                              MUSIC1=1;
+ 408   2                              break;  
+ 409   2              }
+ 410   1              LCD12864_WriteCmd(0x01);        
+ 411   1      }
+ 412          
+ 413          
+ 414          /*中断函数*/
+ 415          void Uart() interrupt 4   //串行口中断
+ 416          {
+ 417   1          UartDate=SBUF;        //取出接受到的数据
+ 418   1          RI=0;                             //清除接受中断标志位
+ 419   1              flag11=UartDate;
+ 420   1      }
+ 421          
+ 422          void delay(){                                   //误差0us
+ 423   1              uchar a,b,c;
+ 424   1              for(c=1;c>0;c--)
+ 425   1                      for(b=38;b>0;b--)
+ 426   1                              for(a=130;a>0;a--);}
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 8   
+
+ 427          
+ 428          void PostString(uchar *p)  
+ 429          {  
+ 430   1              while(*p)          //若指针指向的地址为空，则跳出循环
+ 431   1              {  
+ 432   2                      sendDate(*p); //指针第一次默认指向首地址
+ 433   2                      delay();  //延时，作用为提高发送准确度
+ 434   2                      p++;  
+ 435   2              }         
+ 436   1      }
+ 437          
+ 438          void delayD()//延时程序
+ 439          {
+ 440   1      uchar m,n,s;
+ 441   1      for(m=20;m>0;m--)
+ 442   1      for(n=20;n>0;n--)
+ 443   1      for(s=248;s>0;s--);
+ 444   1      }
+ 445          
+ 446          void smoke(){
+ 447   1              if(DOUT==0){
+ 448   2                      delayD();
+ 449   2                      if(DOUT==0){
+ 450   3                              while(!DOUT){
+ 451   4                              LCD12864_WriteCmd(0x01);    //清除LCD12864的显示内容
+ 452   4                              delay_ms(300);
+ 453   4                              LCDSetPos(1,2);
+ 454   4                              DisplayWord("FIRE!RUN!");
+ 455   4                              delay_ms(300);
+ 456   4                              }
+ 457   3                              BEEP=1;
+ 458   3                              PostString("FIRE!!");   
+ 459   3                      }
+ 460   2              }
+ 461   1      }
+ 462          
+ 463          void FireOn(){
+ 464   1              smoke();
+ 465   1      }
+ 466          
+ 467          void Weather(uchar num){
+ 468   1              if(num==13){
+ 469   2                      LCDSetPos(1,3);
+ 470   2                      DisplayWord("晴天");
+ 471   2              }
+ 472   1              if(num==14){
+ 473   2                      LCDSetPos(1,3);
+ 474   2                      DisplayWord("阴天");            
+ 475   2              }
+ 476   1              if(num==15){
+ 477   2                      LCDSetPos(1,3);
+ 478   2                      DisplayWord("雨天");            
+ 479   2              }                       
+ 480   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1869    ----
+   CONSTANT SIZE    =    128    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      7       5
+C51 COMPILER V9.00   MAIN                                                                  07/07/2021 22:11:44 PAGE 9   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,350 @@
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE LUNARCALENDER
+OBJECT MODULE PLACED IN lunarCalender.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE lunarCalender.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          #include <DS1302.h>
+   4          #include <math.h>
+   5          #include <LCD.h>
+   6          
+   7          #define uchar unsigned char 
+   8          #define uint unsigned int
+   9          
+  10          uchar code1;
+  11          uchar code2;                          
+  12          uchar code3;//这里放24节气的索引
+  13          uchar code4;
+  14          uchar SolarTerm[24];
+  15          uchar lunar_month;
+  16          uchar lunar_date;
+  17          uint temp[12]={0x0800,0x0400,0x0200,0x0100,0x0080,0x0040,0x0020,0x0010,0x0008,0x0004,0x0002,0x0001};
+  18          uint symbol;
+  19          uchar sign[13]={0};
+  20          /*阳历平年和闰年*/
+  21          uchar code Mon1[2][13]={0,31,28,31,30,31,30,31,31,30,31,30,31,
+  22                                  0,31,29,31,30,31,30,31,31,30,31,30,31};
+  23          
+  24          ///阳历月份数据表
+  25          code uchar day_code1[9]={0x0,0x1f,0x3b,0x5a,0x78,0x97,0xb5,0xd4,0xf3};
+  26          code uint day_code2[3]={0x111,0x130,0x14e};
+  27          /*******************************************************************
+  28          公历年对应的农历数据,每年三字节,
+  29          格式第一字节BIT7-4 位表示闰月月份,值为0 为无闰月,BIT3-0 对应农历第1-4 月的大小
+  30          第二字节BIT7-0 对应农历第5-12 月大小,第三字节BIT7 表示农历第13 个月大小
+  31          月份对应的位为1 表示本农历月大(30 天),为0 表示小(29 天).
+  32          第三字节BIT6-5 表示春节的公历月份,BIT4-0 表示春节的公历日期
+  33          每年的数据对应在数组中的位置库 (200-(2100-year)-1)*3+Offset1
+  34          *******************************************************************/
+  35          uchar code yearData[]={         
+  36          0x0C,0x96,0x45, //2000
+  37          0x4d,0x4A,0xB8, //2001
+  38          0x0d,0x4A,0x4C, //2002
+  39          0x0d,0xA5,0x41, //2003
+  40          0x25,0xAA,0xB6, //2004
+  41          0x05,0x6A,0x49, //2005
+  42          0x7A,0xAd,0xBd, //2006
+  43          0x02,0x5d,0x52, //2007
+  44          0x09,0x2d,0x47, //2008
+  45          0x5C,0x95,0xBA, //2009
+  46          0x0A,0x95,0x4e, //2010
+  47          0x0B,0x4A,0x43, //2011
+  48          0x4B,0x55,0x37, //2012
+  49          0x0A,0xd5,0x4A, //2013
+  50          0x95,0x5A,0xBf, //2014
+  51          0x04,0xBA,0x53, //2015
+  52          0x0A,0x5B,0x48, //2016
+  53          0x65,0x2B,0xBC, //2017
+  54          0x05,0x2B,0x50, //2018
+  55          0x0A,0x93,0x45, //2019
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 2   
+
+  56          0x47,0x4A,0xB9, //2020
+  57          0x06,0xAA,0x4C, //2021
+  58          0x0A,0xd5,0x41, //2022
+  59          0x24,0xdA,0xB6, //2023
+  60          0x04,0xB6,0x4A, //2024
+  61          0x69,0x57,0x3d, //2025
+  62          0x0A,0x4e,0x51, //2026
+  63          0x0d,0x26,0x46, //2027
+  64          0x5e,0x93,0x3A, //2028
+  65          0x0d,0x53,0x4d, //2029
+  66          0x05,0xAA,0x43, //2030
+  67          0x36,0xB5,0x37, //2031
+  68          0x09,0x6d,0x4B, //2032
+  69          0xB4,0xAe,0xBf, //2033
+  70          0x04,0xAd,0x53, //2034
+  71          0x0A,0x4d,0x48, //2035
+  72          0x6d,0x25,0xBC, //2036
+  73          0x0d,0x25,0x4f, //2037
+  74          0x0d,0x52,0x44, //2038
+  75          0x5d,0xAA,0x38, //2039
+  76          0x0B,0x5A,0x4C, //2040
+  77          0x05,0x6d,0x41, //2041
+  78          0x24,0xAd,0xB6, //2042
+  79          0x04,0x9B,0x4A, //2043
+  80          0x7A,0x4B,0xBe, //2044
+  81          0x0A,0x4B,0x51, //2045
+  82          0x0A,0xA5,0x46, //2046
+  83          0x5B,0x52,0xBA, //2047
+  84          0x06,0xd2,0x4e, //2048
+  85          0x0A,0xdA,0x42, //2049
+  86          0x35,0x5B,0x37, //2050
+  87          };
+  88          
+  89          /*结构体类型：存放春节的阳历日期*/
+  90          typedef struct spdate            
+  91          {
+  92                  uchar         cYear;
+  93                  uchar        cMon;
+  94                  uchar        cDay;
+  95          }SPDATE;
+  96          
+  97          SPDATE spDate;       //实例化
+  98          
+  99          uchar convertBCDtoHex(uchar BCD){
+ 100   1              uchar temp1,temp2;
+ 101   1              temp1=BCD/16;
+ 102   1              temp2=BCD%16;
+ 103   1              return temp1*10+temp2;  
+ 104   1      }
+ 105          
+ 106          uchar HexDoDex(uchar hex){                                                    //两位16进制数转10进制
+ 107   1              uchar temp1,temp2;
+ 108   1              temp1=hex/16;
+ 109   1              temp2=hex%16;
+ 110   1              return temp1*16+temp2;
+ 111   1      }
+ 112          
+ 113          
+ 114          /*******************************************************************
+ 115          函数名称：calcSolarTerm()
+ 116          函数功能：输入当年的阳历年份后两位，返回24节气所在的日期
+ 117          输入参数：year 当年年份的后两位（10进制年份） 
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 3   
+
+ 118          返回值： 无，定义的是全局变量
+ 119          *******************************************************************/
+ 120          void calcSolarTermInit(uchar year){
+ 121   1              uint i;
+ 122   1              uint l;                             //l是自2000年开始的闰年数
+ 123   1              //uint d=0.2422;
+ 124   1              uint c;
+ 125   1              l=(int)year/4;
+ 126   1              if((year%100!=0 && year%4==0)||(year%100==0 && year%400==0)){l=l-1;}                                     
+             -      
+ 127   1              for(i=0;i<24;i++){
+ 128   2                       switch(i){
+ 129   3                              case 0:c=5.4055;break;      //1月 小寒
+ 130   3                              case 1:c=20.12;break;       //1月 大寒
+ 131   3                              case 2:c=3.87;break;        //2月 立春
+ 132   3                              case 3:c=18.73;break;           //2月 雨水
+ 133   3                              case 4:c=5.63;break;        //3月 惊蛰
+ 134   3                              case 5:c=20.646;break;
+ 135   3                              case 6:c=4.81;break;
+ 136   3                              case 7:c=20.1;break;
+ 137   3                              case 8:c=5.52;break;
+ 138   3                              case 9:c=21.04;break;
+ 139   3                              case 10:c=5.678;break;
+ 140   3                              case 11:c=21.37;break;
+ 141   3                              case 12:c=7.108;break;
+ 142   3                              case 13:c=22.83;break;
+ 143   3                              case 14:c=7.5;break;
+ 144   3                              case 15:c=23.13;break;
+ 145   3                              case 16:c=7.646;break;
+ 146   3                              case 17:c=23.042;break;
+ 147   3                              case 18:c=8.318;break;
+ 148   3                              case 19:c=23.438;break;
+ 149   3                              case 20:c=7.438;break;
+ 150   3                              case 21:c=22.36;break;
+ 151   3                              case 22:c=7.18;break;
+ 152   3                              case 23:c=21.94;break;
+ 153   3                       }                  
+ 154   2                      SolarTerm[i]=(int)(year*0.2422+c-l);    //一定要打0.2422，用d来代替没有用！
+ 155   2                      }
+ 156   1                      /*对计算结果进行修正*/
+ 157   1                      if(year==26){SolarTerm[1]=SolarTerm[1]-1;}
+ 158   1                      if(year==84){SolarTerm[3]=SolarTerm[3]+1;}
+ 159   1                      if(year==8){SolarTerm[7]=SolarTerm[7]+1;}
+ 160   1                      if(year==16){SolarTerm[10]=SolarTerm[10]+1;}
+ 161   1                      if(year==2){SolarTerm[12]=SolarTerm[12]+1;}
+ 162   1                      if(year==89){SolarTerm[17]=SolarTerm[17]+1;SolarTerm[18]=SolarTerm[18]+1;}
+ 163   1                      if(year==21){SolarTerm[21]=SolarTerm[21]-1;}
+ 164   1                      if(year==19){SolarTerm[22]=SolarTerm[22]-1;}
+ 165   1                      if(year==82){SolarTerm[23]=SolarTerm[23]+1;}
+ 166   1      }
+ 167          /*******************************************************************
+ 168          函数名称：convert()
+ 169          函数功能：输入阳历BCD码，输出阴历BCD码。
+ 170          输入参数：year 阳历月份的年 month 阳历月份的BCD码 date 阳历日期的BCD码 
+ 171          返回值： 无，定义的是全局变量
+ 172          *******************************************************************/
+ 173          
+ 174          
+ 175          void convert(uchar year,uchar month,uchar date){
+ 176   1              uchar dex_year;
+ 177   1              uchar temp1;
+ 178   1              uchar month_p;
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 4   
+
+ 179   1              uchar interval_1;
+ 180   1              uint interval_2;
+ 181   1              uchar flag_y;
+ 182   1              uchar flag2;
+ 183   1              uchar leap_month;
+ 184   1              uchar flag=0;
+ 185   1              bit extraBit;
+ 186   1              uchar i;
+ 187   1              uint dex_wholeYear;            //2000年 DEX              
+ 188   1              //将BCD码转换成16进制
+ 189   1              year=convertBCDtoHex(year);
+ 190   1              month=convertBCDtoHex(month);
+ 191   1              date=convertBCDtoHex(date);
+ 192   1      
+ 193   1              dex_wholeYear=2000+HexDoDex(year);             //10进制4位数年份
+ 194   1              dex_year=HexDoDex(year);
+ 195   1      
+ 196   1              //计算天干地支
+ 197   1              code1=(dex_wholeYear-1864)%10;     //天干的索引值
+ 198   1              code2=(dex_wholeYear-1864)%12;     //地支的索引值 
+ 199   1      
+ 200   1      
+ 201   1              //计算24节气                         
+ 202   1              calcSolarTermInit(year);               //计算出当年的24节气
+ 203   1              for(i=0;i<24;i++){                             
+ 204   2                      if((month==(i/2+1))&&(date==SolarTerm[i])){
+ 205   3                              code3=i;
+ 206   3                              break;                                           //当天是第code3个节气                          
+ 207   3                      }
+ 208   2              }
+ 209   1              if(i==23)code3=0xff;
+ 210   1      
+ 211   1              
+ 212   1              /*进行阴阳历转换*/
+ 213   1              //获得春节的阳历日期
+ 214   1              spDate.cYear=dex_year;
+ 215   1          spDate.cMon=(yearData[dex_year*3+2]&0x60)>>5; //计算春节公历月份（正确）
+ 216   1          spDate.cDay=(yearData[dex_year*3+2])&0x1f;    //计算春节公历日期
+ 217   1      
+ 218   1              //判断平年闰年
+ 219   1              if((dex_year%100!=0 && dex_year%4==0) || (dex_year%100==0 && dex_year%400==0)){
+ 220   2                      flag=1;       //表示是闰年
+ 221   2              }
+ 222   1              else{
+ 223   2                      flag=0;       //表示是平年
+ 224   2              }
+ 225   1      
+ 226   1              //获得今年的闰月
+ 227   1              leap_month=(yearData[dex_year*3]&0xf0)>>4;
+ 228   1              symbol=0;
+ 229   1              symbol=((yearData[dex_year*3]&0x0f)<<8)|yearData[dex_year*3+1];   //(数据正确)农历1-12月大小数据
+ 230   1              extraBit=(yearData[dex_year*3]&0x80)>>7;         //存放着农历第13个月的大小数据
+ 231   1              //sign[0]=1;
+ 232   1              
+ 233   1              for(i=0;i<12;i++){                           //(正确)数组sign[i]中存放着农历1-12月大小的数据
+ 234   2                      if(temp[i]&symbol) {sign[i]=1;}
+ 235   2                      else{sign[i]=0;}
+ 236   2              }
+ 237   1              sign[12]=extraBit;
+ 238   1      
+ 239   1          // 计算当年春年离当年元旦的天数,春节只会在公历1月或2月
+ 240   1          if(spDate.cMon==0x1){  
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 5   
+
+ 241   2              interval_1=spDate.cDay-1;  
+ 242   2          }  
+ 243   1          else{
+ 244   2              interval_1=spDate.cDay+0x1f-1;     //interval_1是春节距离元旦的天数   
+ 245   2          }
+ 246   1      
+ 247   1              //计算公历日离当年元旦的天数,为了减少运算,用了两个表
+ 248   1          //day_code1[9],day_code2[3]
+ 249   1          //如果公历月在九月或前,天数会少于0xff,用表day_code1[9],
+ 250   1          //在九月后,天数大于0xff,用表day_code2[3]
+ 251   1          //如输入公历日为8月10日,则公历日离元旦天数为day_code1[8-1]+10-1
+ 252   1          //如输入公历日为11月10日,则公历日离元旦天数为day_code2[11-10]+10-1
+ 253   1          if (month<10){ 
+ 254   2              interval_2=day_code1[month-1]+date-1;
+ 255   2          }
+ 256   1          else{
+ 257   2              interval_2=day_code2[month-10]+date-1;
+ 258   2          }
+ 259   1          if ((month>0x2)&&(year%0x4==0)){  //如果公历月大于2月并且该年的2月为闰月,天数加1
+ 260   2              interval_2+=1;                            //interval_2是公历日期距离元旦的天数
+ 261   2          }
+ 262   1          //计算公历日离当年元旦的天数完成
+ 263   1              
+ 264   1              //判断公历日在春节前还是春节后
+ 265   1          if (interval_2>=interval_1){ //公历日在春节后或就是春节当日使用下面代码进行运算
+ 266   2              interval_2-=interval_1;
+ 267   2              month=0x1;
+ 268   2              month_p=0x1;  //month_p为月份指向,公历日在春节前或就是春节当日month_p指向首月
+ 269   2              flag2=sign[month_p-1]; //检查该农历月为大小还是小月,大月返回1,小月返回0
+ 270   2              flag_y=0;
+ 271   2              if(flag2==0)temp1=0x1d; //小月29天
+ 272   2              else temp1=0x1e; //大月30天
+ 273   2              while(interval_2>=temp1){
+ 274   3                  interval_2-=temp1;
+ 275   3                  month_p+=1;
+ 276   3                  if(month==leap_month){
+ 277   4                      flag_y=~flag_y;
+ 278   4                      if(flag_y==0)month+=1;
+ 279   4                  }
+ 280   3                  else month+=1;
+ 281   3                  flag2=sign[month_p];
+ 282   3                  if(flag2==0)temp1=0x1d;
+ 283   3                  else temp1=0x1e;
+ 284   3              }
+ 285   2              lunar_date=interval_2+1;
+ 286   2          }
+ 287   1          else{  //公历日在春节前使用下面代码进行运算
+ 288   2                      //开始考虑去年的情况
+ 289   2                      year=year-1;
+ 290   2                      //获得闰月
+ 291   2                      leap_month=(yearData[year*3]&0xf0)>>4;
+ 292   2              interval_1-=interval_2;
+ 293   2              month=0xc;   //月份从12开始
+ 294   2              if (extraBit==0)
+ 295   2                              month_p=0xc; 
+ 296   2              else
+ 297   2                              month_p=0xd; //
+ 298   2               //month_p为月份指向,如果当年有闰月,一年有十三个月,月指向13,无闰月指向12
+ 299   2              
+ 300   2              flag_y=0;
+ 301   2              flag2=sign[month_p-1];
+ 302   2              if(flag2==0)temp1=0x1d;    //temp1代表农历大小月份
+C51 COMPILER V9.00   LUNARCALENDER                                                         07/10/2021 15:25:30 PAGE 6   
+
+ 303   2              else temp1=0x1e;
+ 304   2              while(interval_1>temp1){
+ 305   3                  interval_1-=temp1;
+ 306   3                  month_p-=1;
+ 307   3                  if(flag_y==0)month-=1;
+ 308   3                  if(month==leap_month)flag_y=~flag_y;
+ 309   3                  flag2=sign[month_p-1];
+ 310   3                  if(flag2==0)temp1=0x1d;
+ 311   3                  else temp1=0x1e;
+ 312   3               }
+ 313   2              lunar_date=temp1-interval_1+1;
+ 314   2              }
+ 315   1              lunar_month=month;
+ 316   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1136    ----
+   CONSTANT SIZE    =    194    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     72      19
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

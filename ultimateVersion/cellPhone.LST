@@ -1,0 +1,144 @@
+C51 COMPILER V9.00   CELLPHONE                                                             07/07/2021 22:11:45 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE CELLPHONE
+OBJECT MODULE PLACED IN cellPhone.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE cellPhone.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "intrins.h"
+   3          #include "pressKey.h"
+   4          #include "LCDNew.h"
+   5          #include "ds1302.h"
+   6          #include "SelectAlarm.h"
+   7          #include "map.h"
+   8          
+   9          #define uchar unsigned char 
+  10          #define uint unsigned int
+  11          
+  12          uchar idata flag11=0;
+  13          
+  14          /*****************************用蓝牙设置闹钟的函数***********************************/
+  15          /*
+  16          void BtSetAlarm(){              
+  17                  if(flag11==5){
+  18                          SetPlace++;
+  19                          if(SetPlace>=3)
+  20                                  SetPlace=0;
+  21                          flag11=0xff;     //置状态变量到空状态
+  22                  }
+  23          
+  24                  if(flag11==7){
+  25                          alarm[SetPlace]++;
+  26                          DisplayAlarmButton(SetPlace);
+  27                          if((alarm[SetPlace]&0x0f)>9){                       //保证BCD码
+  28                                  alarm[SetPlace]=alarm[SetPlace]+6;
+  29                          }
+  30                          if((alarm[SetPlace]>=0x60)&&(SetPlace<2)){          //分秒只能到59
+  31                                  alarm[SetPlace]=0;
+  32                          }
+  33                          if((alarm[SetPlace]>=0x12)&&(SetPlace==2)){         //小时只能到23
+  34                                  alarm[SetPlace]=0;
+  35                          }
+  36                          flag11=0xff;    //置状态变量到空状态
+  37                  }
+  38          
+  39                  if(flag11==8){
+  40                          if(alarm[SetPlace]&0x0f<=0){
+  41                                  alarm[SetPlace]=alarm[SetPlace]-6;                          //保证BCD码减法
+  42                          }
+  43                          if((alarm[SetPlace]==0x00)&&(SetPlace<2)){          //分秒只能到59
+  44                                  alarm[SetPlace]=0x60;
+  45                          }
+  46                          if((alarm[SetPlace]==0x00)&&(SetPlace==2)){         //小时只能到12
+  47                                  alarm[SetPlace]=0x12;
+  48                          }
+  49                          alarm[SetPlace]--;
+  50                          DisplayAlarmButton(SetPlace);
+  51                          flag11=0xff;                                        //置状态变量到空状态        
+  52                  }
+  53          /*
+  54          
+  55                                  /*设置AM_PM功能*/       
+C51 COMPILER V9.00   CELLPHONE                                                             07/07/2021 22:11:45 PAGE 2   
+
+  56          /*      
+  57                  if(flag11==9){                       //检测按键K2是否按下
+  58                          alarm_AM_PM=1-alarm_AM_PM;
+  59                          if(alarm_AM_PM==0){
+  60                                  LCDSetPos(2,3);
+  61                                  LCD12864_WriteData(' ');
+  62                                  LCD12864_WriteData('A');
+  63                                  LCD12864_WriteData('M');                                
+  64                          }
+  65                          if(alarm_AM_PM==1){
+  66                                  LCDSetPos(2,3);
+  67                                  LCD12864_WriteData(' ');
+  68                                  LCD12864_WriteData('P');
+  69                                  LCD12864_WriteData('M');
+  70                          }
+  71                          flag11=0xff;                                        //置状态变量到空状态
+  72                  }
+  73          }
+  74          
+  75          
+  76          */
+  77          /******************************设置闹钟音乐函数***********************************/
+  78          void BtSetAlarmMusic(){
+  79   1              if(flag11==7){
+  80   2                      if(NumMusic>=1) NumMusic=0;
+  81   2                      else NumMusic++;
+  82   2                      LCDSetPos(1,5);
+  83   2                      LCD12864_WriteData(':');
+  84   2                      LCD12864_WriteData(StrNUMBER[NumMusic]);
+  85   2                      flag11=0xff;
+  86   2              }
+  87   1              if(flag11==8){
+  88   2                      if(NumMusic<=0) NumMusic=1;
+  89   2                      else NumMusic--;
+  90   2                      LCDSetPos(1,5);
+  91   2                      LCD12864_WriteData(':');
+  92   2                      LCD12864_WriteData(StrNUMBER[NumMusic]);
+  93   2                      flag11=0xff;    
+  94   2              }               
+  95   1      }
+  96          
+  97          /************************************蓝牙闹钟菜单**********************************/
+  98          void BTChoice(){
+  99   1              switch(flag11){
+ 100   2                      case 1:                             //设置闹钟开启和关闭
+ 101   2                              AlarmOnOff=1-AlarmOnOff;
+ 102   2                              break;
+ 103   2                      case 7:                            //进入闹钟时间设置模式
+ 104   2                              flagSetATime=1;
+ 105   2                              flagTIME=1;
+ 106   2                              break;
+ 107   2                      case 8:                            //进入闹钟音乐设置模式
+ 108   2                              flagSetAMusic=1;
+ 109   2                              flagMUSIC=1;
+ 110   2                              break;
+ 111   2                      case 5:                            //进入查看闹钟模式
+ 112   2                              flagCheckAlarm=1;
+ 113   2                              flagState=1;
+ 114   2                              break;
+ 115   2              }
+ 116   1              flag11=0xff;
+ 117   1      }
+C51 COMPILER V9.00   CELLPHONE                                                             07/07/2021 22:11:45 PAGE 3   
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    159    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      1    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

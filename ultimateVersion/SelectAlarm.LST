@@ -1,0 +1,157 @@
+C51 COMPILER V9.00   SELECTALARM                                                           07/07/2021 22:11:44 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SELECTALARM
+OBJECT MODULE PLACED IN SelectAlarm.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE SelectAlarm.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "intrins.h"
+   3          #include "string.h"
+   4          #include "LCDNew.h"
+   5          #include "map.h"
+   6          #include "pressKey.h"
+   7          
+   8          #define uchar unsigned char 
+   9          #define uint unsigned int
+  10          
+  11          uchar idata flagSetATime=0;
+  12          uchar idata flagSetAMusic=0;
+  13          uchar idata flagTIME=0;
+  14          uchar idata flagMUSIC=0;
+  15          uchar idata NumMusic=0;
+  16          uchar idata flagCheckAlarm=0;
+  17          uchar idata flagSetAlarmTriggered=0;            //一旦闹钟中断开启过一次以后永远是1
+  18          uchar idata AlarmOnOff=0;                                                 //闹钟关闭是0 其它情况是1         初始化为闹钟关闭
+  19          uchar idata flagState=0;              
+  20          /****************************选择闹钟设置**********************************/
+  21          void DisplayChoice(){
+  22   1              LCDSetPos(0,0);
+  23   1              DisplayWord("闹钟状态：");                   //按下SW6键可以设置闹钟的关闭和开启   SW6就是SET_AM_PM
+  24   1              if(AlarmOnOff==0){
+  25   2                      LCDSetPos(0,5);
+  26   2                      DisplayWord("关闭");    
+  27   2              }
+  28   1              if(AlarmOnOff==1){
+  29   2                      LCDSetPos(0,5);
+  30   2                      DisplayWord("开启");
+  31   2              }
+  32   1              LCDSetPos(1,0);
+  33   1              DisplayWord("设置闹钟时间按+");
+  34   1              LCDSetPos(2,0);
+  35   1              DisplayWord("设置闹钟音乐按-");
+  36   1              LCDSetPos(3,0);
+  37   1              DisplayWord("查看闹钟按SW1");        //to就是SW1 就是K1
+  38   1      }
+  39          
+  40          
+  41          //K2是+键 K5是-键
+  42          void scanChoiceButton(){
+  43   1              uchar i=0;
+  44   1              if(SET_AM_PM==0){                   
+  45   2                      Delay10ms();
+  46   2                      if(SET_AM_PM==0){                           
+  47   3                              AlarmOnOff=1-AlarmOnOff;    //闹钟开启或者关闭
+  48   3                      }
+  49   2                      while((i<50)&&(SET_AM_PM==0)){         
+  50   3                              Delay10ms();
+  51   3                              i++;}
+  52   2                      i=0;                    
+  53   2              }
+  54   1              if(K2==0){                                       //进入设置闹钟时间
+  55   2                      Delay10ms();
+C51 COMPILER V9.00   SELECTALARM                                                           07/07/2021 22:11:44 PAGE 2   
+
+  56   2                      if(K2==0){                          
+  57   3                              flagSetATime=1;
+  58   3                              flagTIME=1;     
+  59   3                      }
+  60   2                      while((i<50)&&(K2==0)){         
+  61   3                              Delay10ms();
+  62   3                              i++;}
+  63   2                      i=0;
+  64   2              }
+  65   1              if(K5==0){                         //进入设置闹钟音乐
+  66   2                      Delay10ms();
+  67   2                      if(K5==0){
+  68   3                              flagSetAMusic=1;
+  69   3                              flagMUSIC=1;    
+  70   3                      }
+  71   2                      while((i<50)&&(K5==0)){        
+  72   3                              Delay10ms();
+  73   3                              i++;}
+  74   2                      i=0;    
+  75   2              }
+  76   1              if(K1==0){                                      //进入查看闹钟状态
+  77   2                      Delay10ms();
+  78   2                      if(K1==0){
+  79   3                              flagCheckAlarm=1;
+  80   3                              flagState=1;
+  81   3                      }
+  82   2                      while((i<50)&&(K1==0)){         //检测按键是否松开
+  83   3                              Delay10ms();
+  84   3                              i++;}
+  85   2                      i=0;    
+  86   2              }       
+  87   1      }
+  88          
+  89          void DisplaySetMusic(){
+  90   1              LCD12864_WriteCmd(0x01);    //清除LCD12864的显示内容
+  91   1              LCDSetPos(0,1);
+  92   1              DisplayWord("设置闹钟音乐");
+  93   1              LCDSetPos(1,1);
+  94   1              DisplayWord("音乐序号");
+  95   1              LCD12864_WriteData(':');
+  96   1              LCD12864_WriteData(StrNUMBER[NumMusic]);
+  97   1      }
+  98          
+  99          //K2是+键 K5是-键
+ 100          void scanButtonSetMusic(){
+ 101   1              uchar i=0;
+ 102   1              if(K2==0){
+ 103   2                      Delay10ms();
+ 104   2                      if(K2==0){
+ 105   3                              if(NumMusic>=1) NumMusic=0;
+ 106   3                              else NumMusic++;
+ 107   3                              LCDSetPos(1,5);
+ 108   3                              LCD12864_WriteData(':');
+ 109   3                              LCD12864_WriteData(StrNUMBER[NumMusic]);                
+ 110   3                      }
+ 111   2                      while((i<50)&&(K2==0)){             //检测按键是否松开
+ 112   3                              Delay10ms();
+ 113   3                              i++;}
+ 114   2                      i=0;    
+ 115   2              }
+ 116   1              if(K5==0){
+ 117   2                      Delay10ms();
+C51 COMPILER V9.00   SELECTALARM                                                           07/07/2021 22:11:44 PAGE 3   
+
+ 118   2                      if(K5==0){
+ 119   3                              if(NumMusic<=0) NumMusic=1;
+ 120   3                              else NumMusic--;
+ 121   3                              LCDSetPos(1,5);
+ 122   3                              LCD12864_WriteData(':');
+ 123   3                              LCD12864_WriteData(StrNUMBER[NumMusic]);                
+ 124   3                      }
+ 125   2                      while((i<50)&&(K5==0)){            //检测按键是否松开
+ 126   3                              Delay10ms();
+ 127   3                              i++;}
+ 128   2                      i=0;    
+ 129   2              }               
+ 130   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    447    ----
+   CONSTANT SIZE    =     89    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       2
+   IDATA SIZE       =      9    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

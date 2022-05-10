@@ -1,0 +1,351 @@
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE PRESSKEY
+OBJECT MODULE PLACED IN pressKey.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE pressKey.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          #include <DS1302.h>
+   4          #include <LCDNew.h>
+   5          #include <map.h>
+   6          #include <cellPhone.h>
+   7          #define uint unsigned int
+   8          #define uchar unsigned char 
+   9          
+  10          sbit K1=P1^2;                //选择要改变的时间参数        SW1
+  11          sbit K2=P1^3;                //设置时间的数据 加按键     SW2
+  12          sbit K5=P1^4;                    //减按键       SW4
+  13          sbit SET_AM_PM=P1^6;     //SW6
+  14          sbit beep=P1^5;          //BEEP口        
+  15          
+  16          uchar idata SetAlarm;               //用于设置闹钟
+  17          uchar idata SetState;               //用于选择要调整的数据 秒分时日月周年
+  18          uchar idata SetPlace;               //用于选择要调整的数据
+  19          uchar idata alarm[3]={0};           //用于装闹钟数据     初始化为0
+  20          uchar idata alarm_AM_PM;                    //默认初始化为AM        
+  21          
+  22          uchar BCDToDex(uchar num);
+  23          uchar DexToBCD(uchar num);
+  24          
+  25          void DisplayButton(SetPlace){
+  26   1                                      switch(SetPlace){
+  27   2                                              case 0: LCDSetPos(1,3);
+  28   2                                                              LCD12864_WriteData(StrNUMBER[TIME[0]/16]);          //秒
+  29   2                                                              if(TIME[0]%16==0)LCD12864_WriteData('0');
+  30   2                                                              else LCD12864_WriteData(StrNUMBER[TIME[0]%16]);
+  31   2                                                              break;
+  32   2                                              case 1: LCDSetPos(1,1);
+  33   2                                                              LCD12864_WriteData(':');
+  34   2                                                              LCD12864_WriteData(StrNUMBER[TIME[1]/16]);          //分
+  35   2                                                              LCD12864_WriteData(StrNUMBER[TIME[1]%16]);
+  36   2                                                              LCD12864_WriteData(':');
+  37   2                                                              break;
+  38   2                                              case 2: LCDSetPos(1,0);
+  39   2                                                              LCD12864_WriteData(StrNUMBER[TIME[2]/16]);          //时
+  40   2                                                              LCD12864_WriteData(StrNUMBER[TIME[2]%16]);         
+  41   2                                                              break;
+  42   2                                              case 3: LCDSetPos(0,5);                                 //日
+  43   2                                                              LCD12864_WriteData(StrNUMBER[TIME[3]/16]);
+  44   2                                                              if(TIME[3]%16==0){
+  45   3                                                                      LCD12864_WriteData('0');        
+  46   3                                                              }
+  47   2                                                              else{
+  48   3                                                                      LCD12864_WriteData(StrNUMBER[TIME[3]%16]);
+  49   3                                                              }
+  50   2                                                              LCDSetPos(1,7);
+  51   2                                                              DisplayWord(MAPNumber(TIME[5]%16));
+  52   2                                                              break;
+  53   2                                              case 4: LCDSetPos(0,3);                                 //月
+  54   2                                                              LCD12864_WriteData(StrNUMBER[TIME[4]/16]);          
+  55   2                                                              LCD12864_WriteData(StrNUMBER[TIME[4]%16]);
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 2   
+
+  56   2                                                              break;
+  57   2                                              case 5: LCDSetPos(1,7);
+  58   2                                                              DisplayWord(MAPNumber(TIME[5]%16));
+  59   2                                                              break;          //星期的显示暂时不写，到时候来改
+  60   2                                              case 6: LCDSetPos(0,1);                                 //年
+  61   2                                                              LCD12864_WriteData(StrNUMBER[TIME[6]/16]);          
+  62   2                                                              LCD12864_WriteData(StrNUMBER[TIME[6]%16]);
+  63   2                                                              break;
+  64   2                                      }
+  65   1              
+  66   1      }
+  67          /******************************************************************************
+  68          函数名：Delay10ms
+  69          函数功能：延时10ms
+  70          输入：无
+  71          输出：无
+  72          *******************************************************************************/
+  73          void Delay10ms(){                                   //误差0us
+  74   1              uchar a,b,c;
+  75   1              for(c=1;c>0;c--)
+  76   1                      for(b=38;b>0;b--)
+  77   1                              for(a=130;a>0;a--);}
+  78          
+  79          
+  80          
+  81          /******************************************************************************
+  82          函数名：scanButton()
+  83          函数功能：键盘扫描函数
+  84          输入： 
+  85          输出：
+  86          *******************************************************************************/
+  87          void scanButton(){
+  88   1              uchar i=0;
+  89   1                      if(K1==0 || flag11==5){                      //检测按键K1是否按下
+  90   2                              Delay10ms();                    //消除抖动
+  91   2                              if(K1==0|| flag11==5){
+  92   3                                      SetPlace++;
+  93   3                                      if(SetPlace>=7)
+  94   3                                      SetPlace=0;
+  95   3                              }
+  96   2                              while((i<50)&&(K1==0)){       //检测按键是否松开
+  97   3                                      Delay10ms();
+  98   3                                      i++;
+  99   3                              }
+ 100   2                              i=0;
+ 101   2                              if(flag11==5) flag11=0xff;
+ 102   2                      }
+ 103   1                      /*加功能*/
+ 104   1                      if(K2==0|| flag11==7){                         //检测按键K2是否按下
+ 105   2                              Delay10ms();                               //消除抖动
+ 106   2                              if(K2==0|| flag11==7){
+ 107   3                                      TIME[SetPlace]++;
+ 108   3                                      if(SetPlace==3){
+ 109   4                                              if(TIME[5]>=0x07) TIME[5]=1;
+ 110   4                                              else TIME[5]++;
+ 111   4                                      }
+ 112   3                                      if((TIME[SetPlace]&0x0f)>9){                       //保证BCD码
+ 113   4                                              TIME[SetPlace]=TIME[SetPlace]+6;
+ 114   4                                      }
+ 115   3                                      if((TIME[SetPlace]>=0x60)&&(SetPlace<2)){          //分秒只能到59
+ 116   4                                              TIME[SetPlace]=0;
+ 117   4                                      }
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 3   
+
+ 118   3                                      if((TIME[SetPlace]>=0x13)&&(SetPlace==2)){         //小时只能到23
+ 119   4                                              TIME[SetPlace]=0;
+ 120   4                                      }
+ 121   3                                      if((TIME[SetPlace]>=0x32)&&(SetPlace==3)){         //日只能到31
+ 122   4                                              TIME[SetPlace]=0;
+ 123   4                                      }
+ 124   3                                      if((TIME[SetPlace]>=0x13)&&(SetPlace==4)){         //月只能到12
+ 125   4                                              TIME[SetPlace]=0;
+ 126   4                                      }
+ 127   3                                      if((TIME[SetPlace]>=0x8)&&(SetPlace==5)){          //周只能到7
+ 128   4                                              TIME[SetPlace]=1;
+ 129   4                                      }
+ 130   3                                      DisplayButton(SetPlace);
+ 131   3                                      while((i<50)&&(K2==0)){                             //检测按键是否松开
+ 132   4                                              Delay10ms();
+ 133   4                                              i++;}
+ 134   3                                      i=0;}
+ 135   2                                      if(flag11==7) flag11=0xff;
+ 136   2                      }
+ 137   1                      
+ 138   1      /*减功能*/
+ 139   1                      if(K5==0 || flag11==8){                       //检测按键K2是否按下
+ 140   2                              Delay10ms();                              //消除抖动
+ 141   2                              if(K5==0 || flag11==8){
+ 142   3                                      TIME[SetPlace]=BCDToDex(TIME[SetPlace]);         //转换成十进制
+ 143   3                                      TIME[SetPlace]--;                                             //进行减法操作
+ 144   3                                      TIME[SetPlace]=DexToBCD(TIME[SetPlace]);     //再转换成BCD码
+ 145   3                                      if(SetPlace==3){
+ 146   4                                              if(TIME[5]==1) TIME[5]=7;
+ 147   4                                              else TIME[5]--;
+ 148   4                                      }
+ 149   3                                      if((TIME[SetPlace]==0)&&(SetPlace<2)){        //分秒只能到59
+ 150   4                                              TIME[SetPlace]=0x60;
+ 151   4                                      }
+ 152   3                                      if((TIME[SetPlace]==0)&&(SetPlace==2)){       //小时只能到12
+ 153   4                                              TIME[SetPlace]=0x12;
+ 154   4                                      }
+ 155   3                                      if((TIME[SetPlace]==0)&&(SetPlace==3)){       //日只能到31
+ 156   4                                              TIME[SetPlace]=0x31;
+ 157   4                                      }
+ 158   3                                      if((TIME[SetPlace]==0)&&(SetPlace==4)){       //月只能到12
+ 159   4                                              TIME[SetPlace]=0x12;
+ 160   4                                      }
+ 161   3                                      if((TIME[SetPlace]==0)&&(SetPlace==5)){          //周只能到7
+ 162   4                                              TIME[SetPlace]=0x07;
+ 163   4                                      }
+ 164   3                                      DisplayButton(SetPlace);
+ 165   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 166   4                                              Delay10ms();
+ 167   4                                              i++;}
+ 168   3                                      i=0;}
+ 169   2                                      if(flag11==8) flag11=0xff;
+ 170   2                      }
+ 171   1              
+ 172   1                      /*设置AM_PM功能*/               
+ 173   1                      if(SET_AM_PM==0 || flag11==9){                       //检测按键K2是否按下
+ 174   2                              Delay10ms();                        //消除抖动
+ 175   2                              if(SET_AM_PM==0|| flag11==9){                       //确认按键确实按下
+ 176   3                                      AM_PM=1-AM_PM;
+ 177   3                              if(AM_PM==0){                     //A
+ 178   4                                      LCDSetPos(1,4);
+ 179   4                                      LCD12864_WriteData('A');
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 4   
+
+ 180   4                                      LCD12864_WriteData('M');
+ 181   4                              }
+ 182   3                              else{
+ 183   4                                      LCDSetPos(1,4);
+ 184   4                                      LCD12864_WriteData('P');
+ 185   4                                      LCD12864_WriteData('M');
+ 186   4                              }
+ 187   3                                      while((i<50)&&(SET_AM_PM==0)){                             //检测按键是否松开
+ 188   4                                              Delay10ms();
+ 189   4                                              i++;
+ 190   4                                      }
+ 191   3                                      i=0;
+ 192   3                              }
+ 193   2                              if(flag11==9) flag11=0xff;
+ 194   2                      }       
+ 195   1      
+ 196   1      }
+ 197          /*************************闹钟按键显示函数**************************************/
+ 198          void DisplayAlarmButton(SetPlace){
+ 199   1                                      switch(SetPlace){
+ 200   2                                              case 0: LCDSetPos(1,5);
+ 201   2                                                              LCD12864_WriteData(StrNUMBER[alarm[0]/16]);         //秒
+ 202   2                                                              LCD12864_WriteData(StrNUMBER[alarm[0]%16]);
+ 203   2                                                              break;
+ 204   2                                              case 1: LCDSetPos(1,3);
+ 205   2                                                              LCD12864_WriteData(':');
+ 206   2                                                              LCD12864_WriteData(StrNUMBER[alarm[1]/16]);         //分
+ 207   2                                                              LCD12864_WriteData(StrNUMBER[alarm[1]%16]);
+ 208   2                                                              LCD12864_WriteData(':');
+ 209   2                                                              break;
+ 210   2                                              case 2: LCDSetPos(1,2);
+ 211   2                                                              LCD12864_WriteData(StrNUMBER[alarm[2]/16]);         //时
+ 212   2                                                              LCD12864_WriteData(StrNUMBER[alarm[2]%16]);         
+ 213   2                                                              break;
+ 214   2                                      }               
+ 215   1      }
+ 216          
+ 217          /******************************************************************************
+ 218          函数名：scanButton_alarm()
+ 219          函数功能：用于闹钟设置的键盘扫描函数
+ 220          输入： 
+ 221          输出：
+ 222          *******************************************************************************/
+ 223          void scanButton_alarm(){
+ 224   1              uchar i=0;
+ 225   1                      if(K1==0 || flag11==5){                      //检测按键K1是否按下
+ 226   2                              Delay10ms();                    //消除抖动
+ 227   2                              if(K1==0|| flag11==5){
+ 228   3                                      SetPlace++;
+ 229   3                                      if(SetPlace>=3)
+ 230   3                                      SetPlace=0;
+ 231   3                              }
+ 232   2                              while((i<50)&&(K1==0)){       //检测按键是否松开
+ 233   3                                      Delay10ms();
+ 234   3                                      i++;
+ 235   3                              }
+ 236   2                              i=0;
+ 237   2                              if(flag11==5)flag11=0xff;
+ 238   2                      }
+ 239   1                      /*加功能*/
+ 240   1                      if(K2==0 || flag11==7){                       //检测按键K2是否按下
+ 241   2                              Delay10ms();                  //消除抖动
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 5   
+
+ 242   2                              if(K2==0|| flag11==7){
+ 243   3                                      alarm[SetPlace]++;
+ 244   3                                      if((alarm[SetPlace]&0x0f)>9){                       //保证BCD码
+ 245   4                                              alarm[SetPlace]=alarm[SetPlace]+6;
+ 246   4                                      }
+ 247   3                                      if((alarm[SetPlace]>=0x60)&&(SetPlace<2)){          //分秒只能到59
+ 248   4                                              alarm[SetPlace]=0;
+ 249   4                                      }
+ 250   3                                      if((alarm[SetPlace]>=0x13)&&(SetPlace==2)){         //小时只能到12
+ 251   4                                              alarm[SetPlace]=0;
+ 252   4                                      }
+ 253   3                                      DisplayAlarmButton(SetPlace);
+ 254   3                                      while((i<50)&&(K2==0)){                             //检测按键是否松开
+ 255   4                                              Delay10ms();
+ 256   4                                              i++;}
+ 257   3                                      i=0;}
+ 258   2                                      if(flag11==7) flag11=0xff;
+ 259   2                      }
+ 260   1                                      /*减功能*/
+ 261   1                      if(K5==0|| flag11==8){                       //检测按键K2是否按下
+ 262   2                              Delay10ms();                  //消除抖动
+ 263   2                              if(K5==0 || flag11==8){
+ 264   3                                      alarm[SetPlace]=BCDToDex(alarm[SetPlace]);         //转换成十进制
+ 265   3                                      alarm[SetPlace]--;                                                 //进行减法操作
+ 266   3                                      alarm[SetPlace]=DexToBCD(alarm[SetPlace]);         //再转换成BCD码
+ 267   3                                      if((alarm[SetPlace]==0)&&(SetPlace<2)){          //分秒只能到59
+ 268   4                                              alarm[SetPlace]=0x60;
+ 269   4                                      }
+ 270   3                                      if((alarm[SetPlace]==0)&&(SetPlace==2)){         //小时只能到23
+ 271   4                                              alarm[SetPlace]=0x12;
+ 272   4                                      }
+ 273   3                                      DisplayAlarmButton(SetPlace);
+ 274   3                                      while((i<50)&&(K5==0)){                             //检测按键是否松开
+ 275   4                                              Delay10ms();
+ 276   4                                              i++;}
+ 277   3                                      i=0;}
+ 278   2                                      if(flag11==8) flag11=0xff;
+ 279   2                      }
+ 280   1              
+ 281   1                      /*设置AM_PM功能*/               
+ 282   1                      if(SET_AM_PM==0 || flag11==9){                       //检测按键K2是否按下
+ 283   2                              Delay10ms();                        //消除抖动
+ 284   2                              if(SET_AM_PM==0 || flag11==9){
+ 285   3                                      alarm_AM_PM=1-alarm_AM_PM;
+ 286   3                                      if(alarm_AM_PM==0){
+ 287   4                                      LCDSetPos(2,3);
+ 288   4                                      LCD12864_WriteData(' ');
+ 289   4                                      LCD12864_WriteData('A');
+ 290   4                                      LCD12864_WriteData('M');                                
+ 291   4                                      }
+ 292   3                                      if(alarm_AM_PM==1){
+ 293   4                                      LCDSetPos(2,3);
+ 294   4                                      LCD12864_WriteData(' ');
+ 295   4                                      LCD12864_WriteData('P');
+ 296   4                                      LCD12864_WriteData('M');
+ 297   4                                      }
+ 298   3                                      while((i<50)&&(SET_AM_PM==0)){                             //检测按键是否松开
+ 299   4                                              Delay10ms();
+ 300   4                                              i++;
+ 301   4                                      }
+ 302   3                                      i=0;
+ 303   3                                      if(flag11==9) flag11=0xff;
+C51 COMPILER V9.00   PRESSKEY                                                              07/07/2021 22:11:44 PAGE 6   
+
+ 304   3                              }
+ 305   2      
+ 306   2                      }       
+ 307   1      
+ 308   1      }
+ 309          
+ 310          uchar BCDToDex(uchar num){
+ 311   1              return (num/16)*10+(num%16);    
+ 312   1      }
+ 313          
+ 314          uchar DexToBCD(uchar num){
+ 315   1              return (num/10)*16+(num%10);
+ 316   1      }
+ 317          
+ 318          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1419    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       2
+   IDATA SIZE       =      7    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

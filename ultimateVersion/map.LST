@@ -1,0 +1,116 @@
+C51 COMPILER V9.00   MAP                                                                   07/07/2021 22:11:43 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAP
+OBJECT MODULE PLACED IN map.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE map.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "intrins.h"
+   3          
+   4          #define uint unsigned int
+   5          #define uchar unsigned char
+   6          
+   7          uchar code StrNUMBER[]={"0123456789"};
+   8          uchar code NUMBER[]={"0123456789"};
+   9          uchar code *word0="小寒";
+  10          uchar code *word1="大寒";
+  11          uchar code *word2="立春";
+  12          uchar code *word3="雨水";
+  13          uchar code *word4="惊蛰";
+  14          uchar code *word5="春分";
+  15          uchar code *word6="清明";
+  16          uchar code *word7="谷雨";
+  17          uchar code *word8="立夏";
+  18          uchar code *word9="小满";
+  19          uchar code *word10="芒种";
+  20          uchar code *word11="夏至";
+  21          uchar code *word12="小暑";
+  22          uchar code *word13="大暑";
+  23          uchar code *word14="立秋";
+  24          uchar code *word15="处暑";
+  25          uchar code *word16="白露";
+  26          uchar code *word17="秋分";
+  27          uchar code *word18="寒露";
+  28          uchar code *word19="霜降";
+  29          uchar code *word20="立冬";
+  30          uchar code *word21="小雪";
+  31          uchar code *word22="大雪";
+  32          uchar code *word23="冬至";
+  33          
+  34          uchar code *Cnumber1="一";
+  35          uchar code *Cnumber2="二";
+  36          uchar code *Cnumber3="三\xfd";
+  37          uchar code *Cnumber4="四";
+  38          uchar code *Cnumber5="五";
+  39          uchar code *Cnumber6="六";
+  40          uchar code *Cnumber7="七";
+  41          uchar code *Cnumber8="八";
+  42          uchar code *Cnumber9="九";
+  43          uchar code *Cnumber10="十";
+  44          
+  45          uchar *MAPSolar(uchar num){
+  46   1              uchar *p;
+  47   1              switch(num){
+  48   2                      case 0:p=word0;break;
+  49   2                      case 1:p=word1;break;
+  50   2                      case 2:p=word2;break;
+  51   2                      case 3:p=word3;break;
+  52   2                      case 4:p=word4;break;
+  53   2                      case 5:p=word5;break;
+  54   2                      case 6:p=word6;break;
+  55   2                      case 7:p=word7;break;
+C51 COMPILER V9.00   MAP                                                                   07/07/2021 22:11:43 PAGE 2   
+
+  56   2                      case 8:p=word8;break;
+  57   2                      case 9:p=word9;break;
+  58   2                      case 10:p=word10;break;
+  59   2                      case 11:p=word11;break;
+  60   2                      case 12:p=word12;break;
+  61   2                      case 13:p=word13;break;
+  62   2                      case 14:p=word14;break;
+  63   2                      case 15:p=word15;break;
+  64   2                      case 16:p=word16;break;
+  65   2                      case 17:p=word17;break;
+  66   2                      case 18:p=word18;break;
+  67   2                      case 19:p=word19;break;
+  68   2                      case 20:p=word20;break;
+  69   2                      case 21:p=word21;break;
+  70   2                      case 22:p=word22;break;
+  71   2                      case 23:p=word23;break;
+  72   2              }
+  73   1              return p;
+  74   1      }
+  75          
+  76          uchar *MAPNumber(uchar num){
+  77   1              uchar *p;
+  78   1              switch(num){
+  79   2                      case 1:p=Cnumber1;break;
+  80   2                      case 2:p=Cnumber2;break;
+  81   2                      case 3:p=Cnumber3;break;
+  82   2                      case 4:p=Cnumber4;break;
+  83   2                      case 5:p=Cnumber5;break;
+  84   2                      case 6:p=Cnumber6;break;
+  85   2                      case 7:p=Cnumber7;break;
+  86   2                      case 8:p=Cnumber8;break;
+  87   2                      case 9:p=Cnumber9;break;
+  88   2                      case 10:p=Cnumber10;break;
+  89   2              }
+  90   1              return p;       
+  91   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    538    ----
+   CONSTANT SIZE    =    172    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     68       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

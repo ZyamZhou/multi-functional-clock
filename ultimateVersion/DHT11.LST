@@ -1,0 +1,154 @@
+C51 COMPILER V9.00   DHT11                                                                 07/07/2021 22:11:43 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE DHT11
+OBJECT MODULE PLACED IN DHT11.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE DHT11.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg51.h>
+   2          #include<intrins.h>
+   3          #include <LCDNew.h>
+   4          
+   5          #define ERROR 0
+   6          #define OK 1
+   7          #define uint unsigned int
+   8          #define uchar unsigned char 
+   9          
+  10          sbit Bus=P2^3;//数据总线
+  11          
+  12          uchar  idata value[5];    
+  13          uint idata check;                        //储存检测值 
+  14          uchar idata temprature,hum;
+  15          //***************************************
+  16          // 模块功能：读取DHT11的数据
+  17          // 该模块为温湿度传感器 当主机给启动信号后
+  18          // 该模块会连续发出5个字节的数据 共耗时约4MS
+  19          // 第一二个字节为湿度数据的整数与小数部分
+  20          // 第三四个字节为温度数据的整数与小数部分
+  21          // 第五个字节为校验码 它是前四个数据相加后的后8位的数值
+  22          // 程序带未传感器未连接检测 及读数据超时处理
+  23          
+  24          //***************************************
+  25           
+  26          void Delay10us(void);
+  27          void Delay20ms(void);
+  28          void Delay1s(void);
+  29          uchar Read_Temp();
+  30          
+  31          uchar Read_Temp()                   
+  32          {
+  33   1              uchar i,j=0,mask;
+  34   1              Bus=0;                    //主机主动拉低并持续20ms（超过18ms）
+  35   1              Delay20ms();
+  36   1              Bus=1;                    //主机再主动拉高40us（20-40us）
+  37   1              Delay10us();
+  38   1              Delay10us();
+  39   1              Delay10us();
+  40   1              Delay10us();
+  41   1              if(Bus==1)//如果总线没有响应
+  42   1              {
+  43   2                      return ERROR;
+  44   2              }
+  45   1              else //如果总线有响应
+  46   1              {
+  47   2                      while(!Bus);  //等待总线的低响应(80us)
+  48   2                      while(Bus);   //等待总线的高响应（80us）
+  49   2                      while(j<5)
+  50   2                      {
+  51   3                              mask=0x80;        //1000 0000 从最高位开始
+  52   3                              for(i=0;i<8;i++)            //接收一个字节
+  53   3                              {
+  54   4                                      while(!Bus);            //等待过一个低电平间隙
+  55   4                                      Delay10us();            //0保持26-28us的高电平，1保持70us的高电平，取40us的处的电平监测
+C51 COMPILER V9.00   DHT11                                                                 07/07/2021 22:11:43 PAGE 2   
+
+  56   4                                      Delay10us();
+  57   4                                      Delay10us();
+  58   4                                      Delay10us();
+  59   4                                      if(Bus==0)                  //说明是数字0
+  60   4                                      {
+  61   5                                              value[j]&=(~mask);      //该位置0
+  62   5                                      }
+  63   4                                      else
+  64   4                                      {
+  65   5                                              value[j]|=mask;         //该位置1
+  66   5                                      }
+  67   4                                      mask>>=1;                               //mask右移一位
+  68   4                                      while(Bus);             //等待该位传送结束
+  69   4                              }
+  70   3                              j++;//继续接受下一个字节
+  71   3                      }
+  72   2                              
+  73   2              }
+  74   1              check=(value[0]+value[2])&0x00ff;  //计算校验和 小数位是0
+  75   1              if(check==value[4])//如果校验和没错
+  76   1              {
+  77   2                      return OK;
+  78   2              }
+  79   1              else
+  80   1              {
+  81   2                      return ERROR;
+  82   2              }
+  83   1       
+  84   1       
+  85   1      }
+  86          
+  87          
+  88          /*10us延时子函数*/
+  89          void Delay10us()
+  90          {
+  91   1              uchar i;
+  92   1              i=2;
+  93   1              while(--i);
+  94   1      }
+  95           
+  96           
+  97          /*20ms延时子函数*/
+  98          void Delay20ms(void)   //误差 -0.000000000005us
+  99          {
+ 100   1          uchar a,b,c;
+ 101   1          for(c=1;c>0;c--)
+ 102   1              for(b=222;b>0;b--)
+ 103   1                  for(a=40;a>0;a--);
+ 104   1      }  
+ 105           
+ 106          /*1s延时子函数*/
+ 107          void Delay1s(void)   //误差 -0.000000000227us
+ 108          {
+ 109   1          uchar a,b,c;
+ 110   1          for(c=13;c>0;c--)
+ 111   1              for(b=247;b>0;b--)
+ 112   1                  for(a=142;a>0;a--);
+ 113   1          _nop_(); 
+ 114   1      }
+ 115          
+ 116          void DHT11_Init(){
+ 117   1              Delay1s();//越过1s不稳定期      
+C51 COMPILER V9.00   DHT11                                                                 07/07/2021 22:11:43 PAGE 3   
+
+ 118   1      }
+ 119          void DHT11(){
+ 120   1              uchar result;
+ 121   1              result=Read_Temp();
+ 122   1              if(result==OK)
+ 123   1              {
+ 124   2                      temprature=value[2];   //温度
+ 125   2                      hum=value[0];    //湿度
+ 126   2              }
+ 127   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    185    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       3
+   IDATA SIZE       =      9    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

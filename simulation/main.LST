@@ -1,0 +1,199 @@
+C51 COMPILER V9.00   MAIN                                                                  07/10/2021 15:25:30 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\ProgramDownload_3\Keil4\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "intrins.h"
+   3          #include "ds1302.h"
+   4          #include "LCD.h"
+   5          #include "pressKey.h"
+   6          #include "lunarCalender.h"
+   7          #include "DHT11.h"
+   8          
+   9          #define uint unsigned int
+  10          #define uchar unsigned char 
+  11          
+  12          
+  13          sbit K3=P3^2;                    //触发设置时间功能(定义在main函数里面)  SET功能
+  14          sbit K4=P3^3;            //触发设置闹钟   alarm功能
+  15          sbit LED1=P2^5;          //闹钟灯 高电平驱动
+  16          
+  17          uchar i;
+  18          void LCDdisplaywhole();
+  19          void AlarmOn();
+  20          
+  21          void main(){
+  22   1              IntConfiguration();
+  23   1              InitLCD();
+  24   1              Ds1302Init();
+  25   1              ClearScreen(0);
+  26   1              AM_PM=(bit)(TIME[2]&0x20>>5);
+  27   1              DHT11_Init();                                  //越过DHT11 1s不稳定期                
+  28   1              while(1){
+  29   2                      /*设置时间*/
+  30   2                      AlarmOn();
+  31   2                      if(SetState==0 && SetAlarm==0){                    //设置时间的中断和设置闹钟的中断都没有触发
+  32   3                              Ds1302ReadTime();
+  33   3                              convert(year,month,date);
+  34   3                              DHT11();
+  35   3                              LCDdisplaywhole();
+  36   3              
+  37   3                      }               
+  38   2                      else if(SetState!=0 && SetAlarm==0){      //触发设置时间的中断
+  39   3                              scanButton();                       
+  40   3                      }
+  41   2                      else{
+  42   3                              scanButton_alarm();
+  43   3                      }                                                               
+  44   2              }
+  45   1      }
+  46          
+  47          void LCDdisplaywhole(){
+  48   1              ClearScreen(0);
+  49   1              for(i=0;i<128;i++){
+  50   2                      Ds1302ReadTime();
+  51   2                      SetStartLine(0);
+  52   2              if(SetState==0 && SetAlarm==0){
+  53   3                      /*显示年*/
+  54   3                      DisplayNumber(1,0,0*16,2);
+  55   3                      DisplayNumber(1,0,1*8,0);
+C51 COMPILER V9.00   MAIN                                                                  07/10/2021 15:25:30 PAGE 2   
+
+  56   3                      DisplayNumber(1,0,2*8,year/16);
+  57   3                      DisplayNumber(1,0,3*8,year%16);
+  58   3                      DisplayWord1(1,0,4*8,0);                            //屏号, 页号,列号,字号
+  59   3                      /*显示月*/
+  60   3                      DisplayNumber(1,0,4*8+1*16,month/16);
+  61   3                      DisplayNumber(1,0,5*8+1*16,month%16);
+  62   3                      DisplayWord1(2,0,0*16,1);
+  63   3                      /*显示日*/
+  64   3                      DisplayNumber(2,0,1*16,date/16);
+  65   3                      DisplayNumber(2,0,1*8+1*16,date%16);
+  66   3                      DisplayWord1(2,0,2*8+1*16,2);
+  67   3                      /*换行*/
+  68   3                      /*显示时间*/
+  69   3                      DisplayNumber(1,2,0*8,hour/16);
+  70   3                      DisplayNumber(1,2,1*8,hour%16);
+  71   3                      DisplayNumber(1,2,2*8,10);
+  72   3                      DisplayNumber(1,2,3*8,minute/16);
+  73   3                      DisplayNumber(1,2,4*8,minute%16);
+  74   3                      DisplayNumber(1,2,5*8,10);
+  75   3                      DisplayNumber(1,2,6*8,second/16);
+  76   3                      DisplayNumber(1,2,7*8,second%16);
+  77   3                      /*显示AM PM*/
+  78   3                      if(AM_PM==0){
+  79   4                              DisplayNumber(2,2,0*8,11);
+  80   4                      }
+  81   3                      else{
+  82   4                              DisplayNumber(2,2,0*8,12);
+  83   4                      }
+  84   3                      DisplayNumber(2,2,1*8,13);
+  85   3                      DisplayWord1(2,2,2*8,6);
+  86   3                      DisplayWord1(2,2,2*8+1*16,7);
+  87   3                      DisplayWord1(2,2,2*8+2*16,day+7);
+  88   3                      /*显示24节气*/
+  89   3                      if((convertBCDtoHex(month)==(code3/2+1))&&(convertBCDtoHex(date)==SolarTerm[code3])){
+  90   4                              DisplaySolarTerm(1,4,0*16,code3*2);
+  91   4                              DisplaySolarTerm(1,4,1*16,code3*2+1);
+  92   4                      }
+  93   3                      /*显示天干地支纪年法*/
+  94   3                      //Displaytiangan(1,4,2*16,code1);
+  95   3                      //Displaydizhi(1,4,3*16,code2);
+  96   3                              
+  97   3                      /*显示阴历日期*/
+  98   3                      if(lunar_month==1){
+  99   4                              DisplaySunToLunar(1,6,1*16,13); 
+ 100   4                      }
+ 101   3                      else if(lunar_month/10==0 && lunar_month%10!=0){
+ 102   4                              DisplaySunToLunar(1,6,1*16,lunar_month%10);     
+ 103   4                      }
+ 104   3                      else if(lunar_month/10==1 && lunar_month%10==0){
+ 105   4                              DisplaySunToLunar(1,6,1*16,10);                       //十
+ 106   4                      }
+ 107   3                      else if(lunar_month%10==1 && lunar_month%10!=0){
+ 108   4                              DisplaySunToLunar(1,6,0*16,lunar_month/10);
+ 109   4                              DisplaySunToLunar(1,6,1*16,lunar_month%10);
+ 110   4                      }
+ 111   3                      else{
+ 112   4                              DisplaySunToLunar(1,6,1*16,12);                   //腊
+ 113   4                      }
+ 114   3      
+ 115   3                      DisplayWord1(1,6,2*16,1);                             //月
+ 116   3                                                           
+ 117   3                      if((lunar_date/10==0) || (lunar_date==10)){
+C51 COMPILER V9.00   MAIN                                                                  07/10/2021 15:25:30 PAGE 3   
+
+ 118   4                              DisplaySunToLunar(1,6,3*16,0);                    //初
+ 119   4                      }
+ 120   3                      else if(lunar_date/10==1){
+ 121   4                              DisplaySunToLunar(1,6,3*16,10);                       //十                初十是一种特殊情况
+ 122   4                      }
+ 123   3                      else if(lunar_date/10==2){
+ 124   4                              DisplaySunToLunar(1,6,3*16,11);                       //廿
+ 125   4                      }
+ 126   3                      else{
+ 127   4                              DisplaySunToLunar(1,6,3*16,3);                    //三        
+ 128   4                      }
+ 129   3                      if(lunar_date%10!=0){
+ 130   4                              DisplaySunToLunar(2,6,0,lunar_date%10);
+ 131   4                      }
+ 132   3                      else{
+ 133   4                              DisplaySunToLunar(2,6,0,10);    
+ 134   4                      }
+ 135   3                      DisplayTemp();
+ 136   3              }               
+ 137   2              }
+ 138   1              
+ 139   1      }
+ 140          void AlarmOn(){                       //闹钟响起函数
+ 141   1              if((second==alarm[0]) && (minute=alarm[1]) && (hour==alarm[2]) && (AM_PM==alarm_AM_PM)){
+ 142   2                      LED1=1;                          //开启闹钟灯
+ 143   2                      //到时候再加音乐
+ 144   2                      }
+ 145   1              else{
+ 146   2                      LED1=0;
+ 147   2              }
+ 148   1      }
+ 149          
+ 150          void Int0() interrupt 0{
+ 151   1              Delay10ms();
+ 152   1              if(K3==0){
+ 153   2                      SetState=~SetState;
+ 154   2                      SetPlace=0;
+ 155   2                      Ds1302Init(); 
+ 156   2              }
+ 157   1      }
+ 158          
+ 159          void Int2() interrupt 2{
+ 160   1              Delay10ms();
+ 161   1              if(K4==0){
+ 162   2                      if(SetAlarm!=0){                                 //每当闹钟设置按键被触发的时候设置一次初始化
+ 163   3                              alarm[2]=TIME[2] & 0x1f; //时
+ 164   3                              alarm[1]=TIME[1];                //分
+ 165   3                              alarm[0]=TIME[0];                //秒
+ 166   3                      }
+ 167   2                      SetAlarm=~SetAlarm;
+ 168   2                      SetPlace=0;
+ 169   2              }
+ 170   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    938    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.00   MAIN                                                                  07/10/2021 15:25:30 PAGE 4   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
