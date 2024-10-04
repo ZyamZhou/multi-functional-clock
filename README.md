@@ -16,7 +16,7 @@
 <img src="https://github.com/ZyamZhou/multi-functional-clock/blob/main/figs/pictures2%20.jpg" width="100%">
 
 ## user guide
-For those who want to use the code. Note that:
+To use the code: 
 
 1) Directory proteusFiles contain the proteus simulation files.
 
